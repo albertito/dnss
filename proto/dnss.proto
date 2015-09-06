@@ -1,6 +1,8 @@
 
 syntax = "proto3";
 
+package dnss;
+
 message GobMsg {
 	// gob-encoded message.
 	// A horrible hack, but will do for now.

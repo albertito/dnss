@@ -55,7 +55,7 @@ func NewDNSServiceClient(cc *grpc.ClientConn) DNSServiceClient {
 }
 
 func (c *dNSServiceClient) Query(ctx context.Context, opts ...grpc.CallOption) (DNSService_QueryClient, error) {
-	stream, err := grpc.NewClientStream(ctx, &_DNSService_serviceDesc.Streams[0], c.cc, "/.DNSService/Query", opts...)
+	stream, err := grpc.NewClientStream(ctx, &_DNSService_serviceDesc.Streams[0], c.cc, "/dnss.DNSService/Query", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -122,7 +122,7 @@ func (x *dNSServiceQueryServer) Recv() (*GobMsg, error) {
 }
 
 var _DNSService_serviceDesc = grpc.ServiceDesc{
-	ServiceName: ".DNSService",
+	ServiceName: "dnss.DNSService",
 	HandlerType: (*DNSServiceServer)(nil),
 	Methods:     []grpc.MethodDesc{},
 	Streams: []grpc.StreamDesc{
