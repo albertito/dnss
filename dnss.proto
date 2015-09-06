@@ -1,0 +1,13 @@
+
+syntax = "proto3";
+
+message GobMsg {
+	// gob-encoded message.
+	// A horrible hack, but will do for now.
+	bytes data = 1;
+}
+
+service DNSService {
+	rpc Query(stream GobMsg) returns (stream GobMsg);
+}
+
