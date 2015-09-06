@@ -1,6 +1,6 @@
-// DNS to GRPC.
+// GRPC to DNS.
 
-package dnstogrpc
+package grpctodns
 
 import (
 	"fmt"
@@ -38,24 +38,24 @@ type Server struct {
 }
 
 func (s *Server) Handler(w dns.ResponseWriter, r *dns.Msg) {
-	fmt.Printf("DNS  %v %v\n", l(w, r), questionsToString(r.Question))
+	fmt.Printf("GRPC %v %v\n", l(w, r), questionsToString(r.Question))
 
 	// TODO: we should create our own IDs, in case different users pick the
 	// same id and we pass that upstream.
 
 	from_up, err := dns.Exchange(r, s.Upstream)
 	if err != nil {
-		fmt.Printf("DNS  %v  ERR: %v\n", l(w, r), err)
-		fmt.Printf("DNS  %v  UP: %v\n", l(w, r), from_up)
+		fmt.Printf("GRPC %v  ERR: %v\n", l(w, r), err)
+		fmt.Printf("GRPC %v  UP: %v\n", l(w, r), from_up)
 	}
 
 	if from_up != nil {
 		if from_up.Rcode != dns.RcodeSuccess {
 			rcode := dns.RcodeToString[from_up.Rcode]
-			fmt.Printf("DNS  %v  !->  %v\n", l(w, r), rcode)
+			fmt.Printf("GPRC %v  !->  %v\n", l(w, r), rcode)
 		}
 		for _, rr := range from_up.Answer {
-			fmt.Printf("DNS  %v  ->  %v\n", l(w, r), rr)
+			fmt.Printf("GRPC %v  ->  %v\n", l(w, r), rr)
 		}
 		w.WriteMsg(from_up)
 	}
