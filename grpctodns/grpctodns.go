@@ -9,6 +9,7 @@ import (
 
 	pb "blitiri.com.ar/go/dnss/proto"
 	"blitiri.com.ar/go/dnss/util"
+	"blitiri.com.ar/go/l"
 	"github.com/miekg/dns"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
@@ -32,10 +33,6 @@ func rrsToString(rrs []dns.RR) string {
 
 }
 
-func l(w dns.ResponseWriter, r *dns.Msg) string {
-	return fmt.Sprintf("%v %v", w.RemoteAddr(), r.Id)
-}
-
 type Server struct {
 	Addr     string
 	Upstream string
@@ -48,14 +45,14 @@ func (s *Server) Query(ctx context.Context, in *pb.RawMsg) (*pb.RawMsg, error) {
 		return nil, err
 	}
 
-	fmt.Printf("GRPC %v\n", util.QuestionsToString(r.Question))
+	l.Printf("GRPC %v\n", util.QuestionsToString(r.Question))
 
 	// TODO: we should create our own IDs, in case different users pick the
 	// same id and we pass that upstream.
 	from_up, err := dns.Exchange(r, s.Upstream)
 	if err != nil {
-		fmt.Printf("GRPC   ERR: %v\n", err)
-		fmt.Printf("GRPC   UP: %v\n", from_up)
+		l.Printf("GRPC   ERR: %v\n", err)
+		l.Printf("GRPC   UP: %v\n", from_up)
 		return nil, err
 	}
 
@@ -65,15 +62,15 @@ func (s *Server) Query(ctx context.Context, in *pb.RawMsg) (*pb.RawMsg, error) {
 
 	if from_up.Rcode != dns.RcodeSuccess {
 		rcode := dns.RcodeToString[from_up.Rcode]
-		fmt.Printf("GPRC   !->  %v\n", rcode)
+		l.Printf("GPRC   !->  %v\n", rcode)
 	}
 	for _, rr := range from_up.Answer {
-		fmt.Printf("GRPC   ->  %v\n", rr)
+		l.Printf("GRPC   ->  %v\n", rr)
 	}
 
 	buf, err := from_up.Pack()
 	if err != nil {
-		fmt.Printf("GRPC   ERR: %v\n", err)
+		l.Printf("GRPC   ERR: %v\n", err)
 		return nil, err
 	}
 
@@ -83,7 +80,7 @@ func (s *Server) Query(ctx context.Context, in *pb.RawMsg) (*pb.RawMsg, error) {
 func (s *Server) ListenAndServe() {
 	lis, err := net.Listen("tcp", s.Addr)
 	if err != nil {
-		fmt.Printf("failed to listen: %v", err)
+		l.Printf("failed to listen: %v", err)
 		return
 	}
 
@@ -91,5 +88,7 @@ func (s *Server) ListenAndServe() {
 
 	grpcServer := grpc.NewServer()
 	pb.RegisterDNSServiceServer(grpcServer, s)
+
+	l.Printf("GRPC listening on %s\n", s.Addr)
 	grpcServer.Serve(lis)
 }

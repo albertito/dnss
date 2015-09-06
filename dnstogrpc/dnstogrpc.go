@@ -8,6 +8,7 @@ import (
 
 	pb "blitiri.com.ar/go/dnss/proto"
 	"blitiri.com.ar/go/dnss/util"
+	"blitiri.com.ar/go/l"
 	"github.com/miekg/dns"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
@@ -60,29 +61,29 @@ func New(addr, upstream string) *Server {
 	}
 }
 
-func l(w dns.ResponseWriter, r *dns.Msg) string {
+func p(w dns.ResponseWriter, r *dns.Msg) string {
 	return fmt.Sprintf("%v %v", w.RemoteAddr(), r.Id)
 }
 
 func (s *Server) Handler(w dns.ResponseWriter, r *dns.Msg) {
-	fmt.Printf("DNS  %v %v\n", l(w, r), util.QuestionsToString(r.Question))
+	l.Printf("DNS  %v %v\n", p(w, r), util.QuestionsToString(r.Question))
 
 	// TODO: we should create our own IDs, in case different users pick the
 	// same id and we pass that upstream.
 
 	from_up, err := s.client.Query(r)
 	if err != nil {
-		fmt.Printf("DNS  %v  ERR: %v\n", l(w, r), err)
-		fmt.Printf("DNS  %v  UP: %v\n", l(w, r), from_up)
+		l.Printf("DNS  %v  ERR: %v\n", p(w, r), err)
+		l.Printf("DNS  %v  UP: %v\n", p(w, r), from_up)
 	}
 
 	if from_up != nil {
 		if from_up.Rcode != dns.RcodeSuccess {
 			rcode := dns.RcodeToString[from_up.Rcode]
-			fmt.Printf("DNS  %v  !->  %v\n", l(w, r), rcode)
+			l.Printf("DNS  %v  !->  %v\n", p(w, r), rcode)
 		}
 		for _, rr := range from_up.Answer {
-			fmt.Printf("DNS  %v  ->  %v\n", l(w, r), rr)
+			l.Printf("DNS  %v  ->  %v\n", p(w, r), rr)
 		}
 		w.WriteMsg(from_up)
 	}
@@ -92,23 +93,25 @@ func (s *Server) ListenAndServe() {
 	err := s.client.Connect()
 	if err != nil {
 		// TODO: handle errors and reconnect.
-		fmt.Printf("Error creating GRPC client: %v\n", err)
+		l.Printf("Error creating GRPC client: %v\n", err)
 		return
 	}
+
+	l.Printf("DNS listening on %s\n", s.Addr)
 
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
 		err := dns.ListenAndServe(s.Addr, "udp", dns.HandlerFunc(s.Handler))
-		fmt.Printf("Exiting UDP: %v\n", err)
+		l.Printf("Exiting UDP: %v\n", err)
 	}()
 
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
 		err := dns.ListenAndServe(s.Addr, "tcp", dns.HandlerFunc(s.Handler))
-		fmt.Printf("Exiting TCP: %v\n", err)
+		l.Printf("Exiting TCP: %v\n", err)
 	}()
 
 	wg.Wait()
