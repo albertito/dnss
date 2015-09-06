@@ -29,10 +29,7 @@ func main() {
 	var wg sync.WaitGroup
 
 	// DNS to GRPC.
-	dtg := &dnstogrpc.Server{
-		Addr:     *dnsaddr,
-		Upstream: *grpcupstream,
-	}
+	dtg := dnstogrpc.New(*dnsaddr, *grpcupstream)
 	wg.Add(1)
 	go func() {
 		defer wg.Done()

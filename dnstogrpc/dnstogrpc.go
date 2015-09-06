@@ -4,46 +4,73 @@ package dnstogrpc
 
 import (
 	"fmt"
-	"strings"
 	"sync"
 
+	pb "blitiri.com.ar/go/dnss/proto"
+	"blitiri.com.ar/go/dnss/util"
 	"github.com/miekg/dns"
+	"golang.org/x/net/context"
+	"google.golang.org/grpc"
 )
 
-func questionsToString(qs []dns.Question) string {
-	var s []string
-	for _, q := range qs {
-		s = append(s, fmt.Sprintf("(%s %s %s)", q.Name,
-			dns.TypeToString[q.Qtype], dns.ClassToString[q.Qclass]))
-	}
-	return "Q[" + strings.Join(s, " ") + "]"
+type grpcclient struct {
+	Upstream string
+	client   pb.DNSServiceClient
 }
 
-func rrsToString(rrs []dns.RR) string {
-	var s []string
-	for _, rr := range rrs {
-		s = append(s, fmt.Sprintf("(%s)", rr))
+func (c *grpcclient) Connect() error {
+	// TODO: TLS
+	conn, err := grpc.Dial(c.Upstream, grpc.WithInsecure())
+	if err != nil {
+		return err
 	}
-	return "RR[" + strings.Join(s, " ") + "]"
 
+	c.client = pb.NewDNSServiceClient(conn)
+	return nil
+}
+
+func (c *grpcclient) Query(r *dns.Msg) (*dns.Msg, error) {
+	buf, err := r.Pack()
+	if err != nil {
+		return nil, err
+	}
+
+	g, err := c.client.Query(
+		context.Background(),
+		&pb.RawMsg{Data: buf})
+	if err != nil {
+		return nil, err
+	}
+
+	m := &dns.Msg{}
+	err = m.Unpack(g.Data)
+	return m, err
+}
+
+type Server struct {
+	Addr string
+
+	client *grpcclient
+}
+
+func New(addr, upstream string) *Server {
+	return &Server{
+		Addr:   addr,
+		client: &grpcclient{Upstream: upstream},
+	}
 }
 
 func l(w dns.ResponseWriter, r *dns.Msg) string {
 	return fmt.Sprintf("%v %v", w.RemoteAddr(), r.Id)
 }
 
-type Server struct {
-	Addr     string
-	Upstream string
-}
-
 func (s *Server) Handler(w dns.ResponseWriter, r *dns.Msg) {
-	fmt.Printf("DNS  %v %v\n", l(w, r), questionsToString(r.Question))
+	fmt.Printf("DNS  %v %v\n", l(w, r), util.QuestionsToString(r.Question))
 
 	// TODO: we should create our own IDs, in case different users pick the
 	// same id and we pass that upstream.
 
-	from_up, err := dns.Exchange(r, s.Upstream)
+	from_up, err := s.client.Query(r)
 	if err != nil {
 		fmt.Printf("DNS  %v  ERR: %v\n", l(w, r), err)
 		fmt.Printf("DNS  %v  UP: %v\n", l(w, r), from_up)
@@ -62,6 +89,13 @@ func (s *Server) Handler(w dns.ResponseWriter, r *dns.Msg) {
 }
 
 func (s *Server) ListenAndServe() {
+	err := s.client.Connect()
+	if err != nil {
+		// TODO: handle errors and reconnect.
+		fmt.Printf("Error creating GRPC client: %v\n", err)
+		return
+	}
+
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {

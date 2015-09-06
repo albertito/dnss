@@ -4,10 +4,14 @@ package grpctodns
 
 import (
 	"fmt"
+	"net"
 	"strings"
-	"sync"
 
+	pb "blitiri.com.ar/go/dnss/proto"
+	"blitiri.com.ar/go/dnss/util"
 	"github.com/miekg/dns"
+	"golang.org/x/net/context"
+	"google.golang.org/grpc"
 )
 
 func questionsToString(qs []dns.Question) string {
@@ -37,45 +41,55 @@ type Server struct {
 	Upstream string
 }
 
-func (s *Server) Handler(w dns.ResponseWriter, r *dns.Msg) {
-	fmt.Printf("GRPC %v %v\n", l(w, r), questionsToString(r.Question))
+func (s *Server) Query(ctx context.Context, in *pb.RawMsg) (*pb.RawMsg, error) {
+	r := &dns.Msg{}
+	err := r.Unpack(in.Data)
+	if err != nil {
+		return nil, err
+	}
+
+	fmt.Printf("GRPC %v\n", util.QuestionsToString(r.Question))
 
 	// TODO: we should create our own IDs, in case different users pick the
 	// same id and we pass that upstream.
-
 	from_up, err := dns.Exchange(r, s.Upstream)
 	if err != nil {
-		fmt.Printf("GRPC %v  ERR: %v\n", l(w, r), err)
-		fmt.Printf("GRPC %v  UP: %v\n", l(w, r), from_up)
+		fmt.Printf("GRPC   ERR: %v\n", err)
+		fmt.Printf("GRPC   UP: %v\n", from_up)
+		return nil, err
 	}
 
-	if from_up != nil {
-		if from_up.Rcode != dns.RcodeSuccess {
-			rcode := dns.RcodeToString[from_up.Rcode]
-			fmt.Printf("GPRC %v  !->  %v\n", l(w, r), rcode)
-		}
-		for _, rr := range from_up.Answer {
-			fmt.Printf("GRPC %v  ->  %v\n", l(w, r), rr)
-		}
-		w.WriteMsg(from_up)
+	if from_up == nil {
+		return nil, fmt.Errorf("No response from upstream")
 	}
+
+	if from_up.Rcode != dns.RcodeSuccess {
+		rcode := dns.RcodeToString[from_up.Rcode]
+		fmt.Printf("GPRC   !->  %v\n", rcode)
+	}
+	for _, rr := range from_up.Answer {
+		fmt.Printf("GRPC   ->  %v\n", rr)
+	}
+
+	buf, err := from_up.Pack()
+	if err != nil {
+		fmt.Printf("GRPC   ERR: %v\n", err)
+		return nil, err
+	}
+
+	return &pb.RawMsg{Data: buf}, nil
 }
 
 func (s *Server) ListenAndServe() {
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		err := dns.ListenAndServe(s.Addr, "udp", dns.HandlerFunc(s.Handler))
-		fmt.Printf("Exiting UDP: %v\n", err)
-	}()
+	lis, err := net.Listen("tcp", s.Addr)
+	if err != nil {
+		fmt.Printf("failed to listen: %v", err)
+		return
+	}
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		err := dns.ListenAndServe(s.Addr, "tcp", dns.HandlerFunc(s.Handler))
-		fmt.Printf("Exiting TCP: %v\n", err)
-	}()
+	// TODO: TLS
 
-	wg.Wait()
+	grpcServer := grpc.NewServer()
+	pb.RegisterDNSServiceServer(grpcServer, s)
+	grpcServer.Serve(lis)
 }

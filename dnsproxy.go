@@ -1,6 +1,4 @@
-// Generate the protobuf+grpc service.
-//go:generate protoc --go_out=plugins=grpc:. dnss.proto
-
+// dnsproxy is a simple DNS proxy server.
 package main
 
 import (

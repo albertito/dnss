@@ -3,13 +3,13 @@ syntax = "proto3";
 
 package dnss;
 
-message GobMsg {
-	// gob-encoded message.
+message RawMsg {
+	// DNS-encoded message.
 	// A horrible hack, but will do for now.
 	bytes data = 1;
 }
 
 service DNSService {
-	rpc Query(stream GobMsg) returns (stream GobMsg);
+	rpc Query(RawMsg) returns (RawMsg);
 }
 
