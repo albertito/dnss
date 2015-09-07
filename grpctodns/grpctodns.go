@@ -52,7 +52,6 @@ func (s *Server) Query(ctx context.Context, in *pb.RawMsg) (*pb.RawMsg, error) {
 	from_up, err := dns.Exchange(r, s.Upstream)
 	if err != nil {
 		l.Printf("GRPC   ERR: %v\n", err)
-		l.Printf("GRPC   UP: %v\n", from_up)
 		return nil, err
 	}
 

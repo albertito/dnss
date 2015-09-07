@@ -5,6 +5,7 @@ package dnstogrpc
 import (
 	"fmt"
 	"sync"
+	"time"
 
 	pb "blitiri.com.ar/go/dnss/proto"
 	"blitiri.com.ar/go/dnss/util"
@@ -36,9 +37,12 @@ func (c *grpcclient) Query(r *dns.Msg) (*dns.Msg, error) {
 		return nil, err
 	}
 
-	g, err := c.client.Query(
-		context.Background(),
-		&pb.RawMsg{Data: buf})
+	// Give our RPCs 2 second timeouts: DNS usually doesn't wait that long
+	// anyway.
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	g, err := c.client.Query(ctx, &pb.RawMsg{Data: buf})
 	if err != nil {
 		return nil, err
 	}
@@ -74,7 +78,6 @@ func (s *Server) Handler(w dns.ResponseWriter, r *dns.Msg) {
 	from_up, err := s.client.Query(r)
 	if err != nil {
 		l.Printf("DNS  %v  ERR: %v\n", p(w, r), err)
-		l.Printf("DNS  %v  UP: %v\n", p(w, r), from_up)
 	}
 
 	if from_up != nil {
