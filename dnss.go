@@ -2,11 +2,12 @@ package main
 
 import (
 	"flag"
+	"log"
 	"sync"
 
 	"blitiri.com.ar/go/dnss/dnstogrpc"
 	"blitiri.com.ar/go/dnss/grpctodns"
-	"blitiri.com.ar/go/l"
+	"blitiri.com.ar/go/logconfig"
 	"blitiri.com.ar/go/profile"
 )
 
@@ -29,11 +30,11 @@ var (
 func main() {
 	flag.Parse()
 
+	logconfig.Init("dnss")
 	profile.Init()
-	l.Init("dnss")
 
 	if !*enableDNStoGRPC && !*enableGRPCtoDNS {
-		l.Fatalf(
+		log.Fatalf(
 			"ERROR: pass --enable_dns_to_grpc or --enable_grpc_to_dns\n")
 	}
 

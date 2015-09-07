@@ -4,12 +4,12 @@ package grpctodns
 
 import (
 	"fmt"
+	"log"
 	"net"
 	"strings"
 
 	pb "blitiri.com.ar/go/dnss/proto"
 	"blitiri.com.ar/go/dnss/util"
-	"blitiri.com.ar/go/l"
 	"github.com/miekg/dns"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
@@ -45,13 +45,13 @@ func (s *Server) Query(ctx context.Context, in *pb.RawMsg) (*pb.RawMsg, error) {
 		return nil, err
 	}
 
-	l.Printf("GRPC %v\n", util.QuestionsToString(r.Question))
+	log.Printf("GRPC %v\n", util.QuestionsToString(r.Question))
 
 	// TODO: we should create our own IDs, in case different users pick the
 	// same id and we pass that upstream.
 	from_up, err := dns.Exchange(r, s.Upstream)
 	if err != nil {
-		l.Printf("GRPC   ERR: %v\n", err)
+		log.Printf("GRPC   ERR: %v\n", err)
 		return nil, err
 	}
 
@@ -61,15 +61,15 @@ func (s *Server) Query(ctx context.Context, in *pb.RawMsg) (*pb.RawMsg, error) {
 
 	if from_up.Rcode != dns.RcodeSuccess {
 		rcode := dns.RcodeToString[from_up.Rcode]
-		l.Printf("GPRC   !->  %v\n", rcode)
+		log.Printf("GPRC   !->  %v\n", rcode)
 	}
 	for _, rr := range from_up.Answer {
-		l.Printf("GRPC   ->  %v\n", rr)
+		log.Printf("GRPC   ->  %v\n", rr)
 	}
 
 	buf, err := from_up.Pack()
 	if err != nil {
-		l.Printf("GRPC   ERR: %v\n", err)
+		log.Printf("GRPC   ERR: %v\n", err)
 		return nil, err
 	}
 
@@ -79,7 +79,7 @@ func (s *Server) Query(ctx context.Context, in *pb.RawMsg) (*pb.RawMsg, error) {
 func (s *Server) ListenAndServe() {
 	lis, err := net.Listen("tcp", s.Addr)
 	if err != nil {
-		l.Printf("failed to listen: %v", err)
+		log.Printf("failed to listen: %v", err)
 		return
 	}
 
@@ -88,6 +88,6 @@ func (s *Server) ListenAndServe() {
 	grpcServer := grpc.NewServer()
 	pb.RegisterDNSServiceServer(grpcServer, s)
 
-	l.Printf("GRPC listening on %s\n", s.Addr)
+	log.Printf("GRPC listening on %s\n", s.Addr)
 	grpcServer.Serve(lis)
 }
