@@ -13,6 +13,7 @@ import (
 	"github.com/miekg/dns"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 )
 
 func questionsToString(qs []dns.Question) string {
@@ -36,6 +37,8 @@ func rrsToString(rrs []dns.RR) string {
 type Server struct {
 	Addr     string
 	Upstream string
+	CertFile string
+	KeyFile  string
 }
 
 func (s *Server) Query(ctx context.Context, in *pb.RawMsg) (*pb.RawMsg, error) {
@@ -83,9 +86,13 @@ func (s *Server) ListenAndServe() {
 		return
 	}
 
-	// TODO: TLS
+	ta, err := credentials.NewServerTLSFromFile(s.CertFile, s.KeyFile)
+	if err != nil {
+		log.Printf("failed to create TLS transport auth: %v", err)
+		return
+	}
 
-	grpcServer := grpc.NewServer()
+	grpcServer := grpc.NewServer(grpc.Creds(ta))
 	pb.RegisterDNSServiceServer(grpcServer, s)
 
 	log.Printf("GRPC listening on %s\n", s.Addr)

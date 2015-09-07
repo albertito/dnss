@@ -13,16 +13,28 @@ import (
 	"github.com/miekg/dns"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 )
 
 type grpcclient struct {
 	Upstream string
+	CAFile   string
 	client   pb.DNSServiceClient
 }
 
 func (c *grpcclient) Connect() error {
-	// TODO: TLS
-	conn, err := grpc.Dial(c.Upstream, grpc.WithInsecure())
+	var err error
+	var creds credentials.TransportAuthenticator
+	if c.CAFile == "" {
+		creds = credentials.NewClientTLSFromCert(nil, "")
+	} else {
+		creds, err = credentials.NewClientTLSFromFile(c.CAFile, "")
+		if err != nil {
+			return err
+		}
+	}
+
+	conn, err := grpc.Dial(c.Upstream, grpc.WithTransportCredentials(creds))
 	if err != nil {
 		return err
 	}
@@ -58,10 +70,13 @@ type Server struct {
 	client *grpcclient
 }
 
-func New(addr, upstream string) *Server {
+func New(addr, upstream, caFile string) *Server {
 	return &Server{
-		Addr:   addr,
-		client: &grpcclient{Upstream: upstream},
+		Addr: addr,
+		client: &grpcclient{
+			Upstream: upstream,
+			CAFile:   caFile,
+		},
 	}
 }
 
