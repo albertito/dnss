@@ -14,23 +14,23 @@ import (
 var (
 	enableDNStoGRPC = flag.Bool("enable_dns_to_grpc", false,
 		"enable DNS-to-GRPC server")
-	dnsaddr = flag.String("dnsaddr", ":53",
+	dnsAddr = flag.String("dns_addr", ":53",
 		"address to listen on for DNS")
-	grpcupstream = flag.String("grpcupstream", "localhost:9953",
+	grpcUpstream = flag.String("grpc_upstream", "localhost:9953",
 		"address of the upstream GRPC server")
-	grpc_client_cafile = flag.String("grpc_client_cafile", "",
+	grpcClientCAFile = flag.String("grpc_client_cafile", "",
 		"CA file to use for the GRPC client")
 
 	enableGRPCtoDNS = flag.Bool("enable_grpc_to_dns", false,
 		"enable GRPC-to-DNS server")
-	grpcaddr = flag.String("grpcaddr", ":9953",
+	grpcAddr = flag.String("grpc_addr", ":9953",
 		"address to listen on for GRPC")
-	dnsupstream = flag.String("dnsupstream", "8.8.8.8:53",
+	dnsUpstream = flag.String("dns_upstream", "8.8.8.8:53",
 		"address of the upstream DNS server")
 
-	grpccert = flag.String("grpccert", "",
+	grpcCert = flag.String("grpc_cert", "",
 		"certificate file for the GRPC server")
-	grpckey = flag.String("grpckey", "",
+	grpcKey = flag.String("grpc_key", "",
 		"key file for the GRPC server")
 )
 
@@ -49,7 +49,7 @@ func main() {
 
 	// DNS to GRPC.
 	if *enableDNStoGRPC {
-		dtg := dnstogrpc.New(*dnsaddr, *grpcupstream, *grpc_client_cafile)
+		dtg := dnstogrpc.New(*dnsAddr, *grpcUpstream, *grpcClientCAFile)
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
@@ -60,10 +60,10 @@ func main() {
 	// GRPC to DNS.
 	if *enableGRPCtoDNS {
 		gtd := &grpctodns.Server{
-			Addr:     *grpcaddr,
-			Upstream: *dnsupstream,
-			CertFile: *grpccert,
-			KeyFile:  *grpckey,
+			Addr:     *grpcAddr,
+			Upstream: *dnsUpstream,
+			CertFile: *grpcCert,
+			KeyFile:  *grpcKey,
 		}
 		wg.Add(1)
 		go func() {
