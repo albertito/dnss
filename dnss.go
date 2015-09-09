@@ -14,7 +14,7 @@ import (
 var (
 	enableDNStoGRPC = flag.Bool("enable_dns_to_grpc", false,
 		"enable DNS-to-GRPC server")
-	dnsAddr = flag.String("dns_addr", ":53",
+	dnsListenAddr = flag.String("dns_listen_addr", ":53",
 		"address to listen on for DNS")
 	grpcUpstream = flag.String("grpc_upstream", "localhost:9953",
 		"address of the upstream GRPC server")
@@ -23,7 +23,7 @@ var (
 
 	enableGRPCtoDNS = flag.Bool("enable_grpc_to_dns", false,
 		"enable GRPC-to-DNS server")
-	grpcAddr = flag.String("grpc_addr", ":9953",
+	grpcListenAddr = flag.String("grpc_listen_addr", ":9953",
 		"address to listen on for GRPC")
 	dnsUpstream = flag.String("dns_upstream", "8.8.8.8:53",
 		"address of the upstream DNS server")
@@ -49,7 +49,7 @@ func main() {
 
 	// DNS to GRPC.
 	if *enableDNStoGRPC {
-		dtg := dnstogrpc.New(*dnsAddr, *grpcUpstream, *grpcClientCAFile)
+		dtg := dnstogrpc.New(*dnsListenAddr, *grpcUpstream, *grpcClientCAFile)
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
@@ -60,7 +60,7 @@ func main() {
 	// GRPC to DNS.
 	if *enableGRPCtoDNS {
 		gtd := &grpctodns.Server{
-			Addr:     *grpcAddr,
+			Addr:     *grpcListenAddr,
 			Upstream: *dnsUpstream,
 			CertFile: *grpcCert,
 			KeyFile:  *grpcKey,
