@@ -3,7 +3,6 @@
 package dnstogrpc
 
 import (
-	"fmt"
 	"sync"
 	"time"
 
@@ -12,6 +11,7 @@ import (
 	"github.com/golang/glog"
 	"github.com/miekg/dns"
 	"golang.org/x/net/context"
+	"golang.org/x/net/trace"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 )
@@ -81,10 +81,13 @@ func New(addr, upstream, caFile string) *Server {
 }
 
 func (s *Server) Handler(w dns.ResponseWriter, r *dns.Msg) {
-	prefix := ""
+	tr := trace.New("dnstogrpc", "Handler")
+	defer tr.Finish()
+
+	tr.LazyPrintf("from:%v   id:%v", w.RemoteAddr(), r.Id)
+
 	if glog.V(3) {
-		prefix = fmt.Sprintf("%v %v", w.RemoteAddr(), r.Id)
-		glog.Infof("DNS  %v %v", prefix, util.QuestionsToString(r.Question))
+		tr.LazyPrintf(util.QuestionsToString(r.Question))
 	}
 
 	// TODO: we should create our own IDs, in case different users pick the
@@ -92,19 +95,17 @@ func (s *Server) Handler(w dns.ResponseWriter, r *dns.Msg) {
 
 	from_up, err := s.client.Query(r)
 	if err != nil {
-		glog.V(3).Infof("DNS  %v  ERR: %v", prefix, err)
+		glog.Infof(err.Error())
+		tr.LazyPrintf(err.Error())
+		tr.SetError()
+		return
 	}
 
-	if from_up != nil {
-		if from_up.Rcode != dns.RcodeSuccess {
-			rcode := dns.RcodeToString[from_up.Rcode]
-			glog.V(3).Infof("DNS  %v  !->  %v", prefix, rcode)
-		}
-		for _, rr := range from_up.Answer {
-			glog.V(3).Infof("DNS  %v  ->  %v", prefix, rr)
-		}
-		w.WriteMsg(from_up)
+	if glog.V(3) {
+		util.TraceAnswer(tr, from_up)
 	}
+
+	w.WriteMsg(from_up)
 }
 
 func (s *Server) ListenAndServe() {

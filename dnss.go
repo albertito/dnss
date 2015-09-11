@@ -12,6 +12,7 @@ import (
 	"github.com/golang/glog"
 
 	// Make GRPC log to glog.
+	"google.golang.org/grpc"
 	_ "google.golang.org/grpc/grpclog/glogger"
 
 	"blitiri.com.ar/go/dnss/dnstogrpc"
@@ -60,9 +61,11 @@ func main() {
 
 	go flushLogs()
 
+	grpc.EnableTracing = false
 	if *monitoringListenAddr != "" {
 		glog.Infof("Monitoring HTTP server listening on %s",
 			*monitoringListenAddr)
+		grpc.EnableTracing = true
 		go http.ListenAndServe(*monitoringListenAddr, nil)
 	}
 
