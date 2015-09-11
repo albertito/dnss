@@ -5,6 +5,10 @@ import (
 	"sync"
 	"time"
 
+	// Register pprof handlers for monitoring and debugging.
+	"net/http"
+	_ "net/http/pprof"
+
 	"github.com/golang/glog"
 
 	// Make GRPC log to glog.
@@ -12,7 +16,6 @@ import (
 
 	"blitiri.com.ar/go/dnss/dnstogrpc"
 	"blitiri.com.ar/go/dnss/grpctodns"
-	"blitiri.com.ar/go/profile"
 )
 
 var (
@@ -39,6 +42,8 @@ var (
 
 	logFlushEvery = flag.Duration("log_flush_every", 30*time.Second,
 		"how often to flush logs")
+	monitoringListenAddr = flag.String("monitoring_listen_addr", "",
+		"address to listen on for monitoring HTTP requests")
 )
 
 func flushLogs() {
@@ -53,9 +58,13 @@ func main() {
 
 	flag.Parse()
 
-	profile.Init()
-
 	go flushLogs()
+
+	if *monitoringListenAddr != "" {
+		glog.Infof("Monitoring HTTP server listening on %s",
+			*monitoringListenAddr)
+		go http.ListenAndServe(*monitoringListenAddr, nil)
+	}
 
 	if !*enableDNStoGRPC && !*enableGRPCtoDNS {
 		glog.Fatal(
