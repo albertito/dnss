@@ -2,12 +2,16 @@ package main
 
 import (
 	"flag"
-	"log"
 	"sync"
+	"time"
+
+	"github.com/golang/glog"
+
+	// Make GRPC log to glog.
+	_ "google.golang.org/grpc/grpclog/glogger"
 
 	"blitiri.com.ar/go/dnss/dnstogrpc"
 	"blitiri.com.ar/go/dnss/grpctodns"
-	"blitiri.com.ar/go/logconfig"
 	"blitiri.com.ar/go/profile"
 )
 
@@ -32,17 +36,30 @@ var (
 		"certificate file for the GRPC server")
 	grpcKey = flag.String("grpc_key", "",
 		"key file for the GRPC server")
+
+	logFlushEvery = flag.Duration("log_flush_every", 30*time.Second,
+		"how often to flush logs")
 )
 
+func flushLogs() {
+	c := time.Tick(*logFlushEvery)
+	for range c {
+		glog.Flush()
+	}
+}
+
 func main() {
+	defer glog.Flush()
+
 	flag.Parse()
 
-	logconfig.Init("dnss")
 	profile.Init()
 
+	go flushLogs()
+
 	if !*enableDNStoGRPC && !*enableGRPCtoDNS {
-		log.Fatalf(
-			"ERROR: pass --enable_dns_to_grpc or --enable_grpc_to_dns\n")
+		glog.Fatal(
+			"Error: pass --enable_dns_to_grpc or --enable_grpc_to_dns")
 	}
 
 	var wg sync.WaitGroup

@@ -4,12 +4,12 @@ package grpctodns
 
 import (
 	"fmt"
-	"log"
 	"net"
 	"strings"
 
 	pb "blitiri.com.ar/go/dnss/proto"
 	"blitiri.com.ar/go/dnss/util"
+	"github.com/golang/glog"
 	"github.com/miekg/dns"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
@@ -48,13 +48,15 @@ func (s *Server) Query(ctx context.Context, in *pb.RawMsg) (*pb.RawMsg, error) {
 		return nil, err
 	}
 
-	log.Printf("GRPC %v\n", util.QuestionsToString(r.Question))
+	if glog.V(3) {
+		glog.Infof("GRPC %v", util.QuestionsToString(r.Question))
+	}
 
 	// TODO: we should create our own IDs, in case different users pick the
 	// same id and we pass that upstream.
 	from_up, err := dns.Exchange(r, s.Upstream)
 	if err != nil {
-		log.Printf("GRPC   ERR: %v\n", err)
+		glog.V(3).Infof("GRPC   ERR: %v", err)
 		return nil, err
 	}
 
@@ -64,15 +66,15 @@ func (s *Server) Query(ctx context.Context, in *pb.RawMsg) (*pb.RawMsg, error) {
 
 	if from_up.Rcode != dns.RcodeSuccess {
 		rcode := dns.RcodeToString[from_up.Rcode]
-		log.Printf("GPRC   !->  %v\n", rcode)
+		glog.V(3).Infof("GPRC   !->  %v", rcode)
 	}
 	for _, rr := range from_up.Answer {
-		log.Printf("GRPC   ->  %v\n", rr)
+		glog.V(3).Infof("GRPC   ->  %v", rr)
 	}
 
 	buf, err := from_up.Pack()
 	if err != nil {
-		log.Printf("GRPC   ERR: %v\n", err)
+		glog.V(3).Infof("GRPC   ERR: %v", err)
 		return nil, err
 	}
 
@@ -82,19 +84,20 @@ func (s *Server) Query(ctx context.Context, in *pb.RawMsg) (*pb.RawMsg, error) {
 func (s *Server) ListenAndServe() {
 	lis, err := net.Listen("tcp", s.Addr)
 	if err != nil {
-		log.Printf("failed to listen: %v", err)
+		glog.Errorf("failed to listen: %v", err)
 		return
 	}
 
 	ta, err := credentials.NewServerTLSFromFile(s.CertFile, s.KeyFile)
 	if err != nil {
-		log.Printf("failed to create TLS transport auth: %v", err)
+		glog.Errorf("failed to create TLS transport auth: %v", err)
 		return
 	}
 
 	grpcServer := grpc.NewServer(grpc.Creds(ta))
 	pb.RegisterDNSServiceServer(grpcServer, s)
 
-	log.Printf("GRPC listening on %s\n", s.Addr)
-	grpcServer.Serve(lis)
+	glog.Errorf("GRPC listening on %s", s.Addr)
+	err = grpcServer.Serve(lis)
+	glog.Errorf("GRPC exiting: %s", err)
 }

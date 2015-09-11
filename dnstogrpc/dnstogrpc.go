@@ -4,12 +4,12 @@ package dnstogrpc
 
 import (
 	"fmt"
-	"log"
 	"sync"
 	"time"
 
 	pb "blitiri.com.ar/go/dnss/proto"
 	"blitiri.com.ar/go/dnss/util"
+	"github.com/golang/glog"
 	"github.com/miekg/dns"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
@@ -80,28 +80,28 @@ func New(addr, upstream, caFile string) *Server {
 	}
 }
 
-func p(w dns.ResponseWriter, r *dns.Msg) string {
-	return fmt.Sprintf("%v %v", w.RemoteAddr(), r.Id)
-}
-
 func (s *Server) Handler(w dns.ResponseWriter, r *dns.Msg) {
-	log.Printf("DNS  %v %v\n", p(w, r), util.QuestionsToString(r.Question))
+	prefix := ""
+	if glog.V(3) {
+		prefix = fmt.Sprintf("%v %v", w.RemoteAddr(), r.Id)
+		glog.Infof("DNS  %v %v", prefix, util.QuestionsToString(r.Question))
+	}
 
 	// TODO: we should create our own IDs, in case different users pick the
 	// same id and we pass that upstream.
 
 	from_up, err := s.client.Query(r)
 	if err != nil {
-		log.Printf("DNS  %v  ERR: %v\n", p(w, r), err)
+		glog.V(3).Infof("DNS  %v  ERR: %v", prefix, err)
 	}
 
 	if from_up != nil {
 		if from_up.Rcode != dns.RcodeSuccess {
 			rcode := dns.RcodeToString[from_up.Rcode]
-			log.Printf("DNS  %v  !->  %v\n", p(w, r), rcode)
+			glog.V(3).Infof("DNS  %v  !->  %v", prefix, rcode)
 		}
 		for _, rr := range from_up.Answer {
-			log.Printf("DNS  %v  ->  %v\n", p(w, r), rr)
+			glog.V(3).Infof("DNS  %v  ->  %v", prefix, rr)
 		}
 		w.WriteMsg(from_up)
 	}
@@ -110,26 +110,25 @@ func (s *Server) Handler(w dns.ResponseWriter, r *dns.Msg) {
 func (s *Server) ListenAndServe() {
 	err := s.client.Connect()
 	if err != nil {
-		// TODO: handle errors and reconnect.
-		log.Printf("Error creating GRPC client: %v\n", err)
+		glog.Errorf("Error creating GRPC client: %v", err)
 		return
 	}
 
-	log.Printf("DNS listening on %s\n", s.Addr)
+	glog.Infof("DNS listening on %s", s.Addr)
 
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
 		err := dns.ListenAndServe(s.Addr, "udp", dns.HandlerFunc(s.Handler))
-		log.Printf("Exiting UDP: %v\n", err)
+		glog.Errorf("Exiting UDP: %v", err)
 	}()
 
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
 		err := dns.ListenAndServe(s.Addr, "tcp", dns.HandlerFunc(s.Handler))
-		log.Printf("Exiting TCP: %v\n", err)
+		glog.Errorf("Exiting TCP: %v", err)
 	}()
 
 	wg.Wait()
