@@ -105,7 +105,7 @@ func (s *Server) ListenAndServe() {
 	grpcServer := grpc.NewServer(grpc.Creds(ta))
 	pb.RegisterDNSServiceServer(grpcServer, s)
 
-	glog.Errorf("GRPC listening on %s", s.Addr)
+	glog.Infof("GRPC listening on %s", s.Addr)
 	err = grpcServer.Serve(lis)
-	glog.Errorf("GRPC exiting: %s", err)
+	glog.Infof("GRPC exiting: %s", err)
 }
