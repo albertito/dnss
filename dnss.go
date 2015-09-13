@@ -28,6 +28,8 @@ var (
 		"address of the upstream GRPC server")
 	grpcClientCAFile = flag.String("grpc_client_cafile", "",
 		"CA file to use for the GRPC client")
+	dnsUnqualifiedUpstream = flag.String("dns_unqualified_upstream", "",
+		"DNS server to forward unqualified requests to")
 
 	enableGRPCtoDNS = flag.Bool("enable_grpc_to_dns", false,
 		"enable GRPC-to-DNS server")
@@ -78,7 +80,8 @@ func main() {
 
 	// DNS to GRPC.
 	if *enableDNStoGRPC {
-		dtg := dnstogrpc.New(*dnsListenAddr, *grpcUpstream, *grpcClientCAFile)
+		dtg := dnstogrpc.New(*dnsListenAddr, *grpcUpstream, *grpcClientCAFile,
+			*dnsUnqualifiedUpstream)
 		wg.Add(1)
 		go func() {
 			defer wg.Done()

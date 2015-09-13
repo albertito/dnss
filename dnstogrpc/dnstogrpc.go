@@ -3,6 +3,7 @@
 package dnstogrpc
 
 import (
+	"strings"
 	"sync"
 	"time"
 
@@ -65,18 +66,20 @@ func (c *grpcclient) Query(r *dns.Msg) (*dns.Msg, error) {
 }
 
 type Server struct {
-	Addr string
+	Addr        string
+	unqUpstream string
 
 	client *grpcclient
 }
 
-func New(addr, upstream, caFile string) *Server {
+func New(addr, upstream, caFile, unqUpstream string) *Server {
 	return &Server{
 		Addr: addr,
 		client: &grpcclient{
 			Upstream: upstream,
 			CAFile:   caFile,
 		},
+		unqUpstream: unqUpstream,
 	}
 }
 
@@ -88,6 +91,22 @@ func (s *Server) Handler(w dns.ResponseWriter, r *dns.Msg) {
 
 	if glog.V(3) {
 		tr.LazyPrintf(util.QuestionsToString(r.Question))
+	}
+
+	if s.unqUpstream != "" &&
+		len(r.Question) == 1 &&
+		strings.Count(r.Question[0].Name, ".") <= 1 {
+		u, err := dns.Exchange(r, s.unqUpstream)
+		if err == nil {
+			tr.LazyPrintf("used unqualified upstream")
+			if glog.V(3) {
+				util.TraceAnswer(tr, u)
+			}
+			w.WriteMsg(u)
+			return
+		} else {
+			tr.LazyPrintf("unqualified upstream error: %v", err)
+		}
 	}
 
 	// TODO: we should create our own IDs, in case different users pick the
