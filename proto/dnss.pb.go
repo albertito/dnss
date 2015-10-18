@@ -74,9 +74,9 @@ func RegisterDNSServiceServer(s *grpc.Server, srv DNSServiceServer) {
 	s.RegisterService(&_DNSService_serviceDesc, srv)
 }
 
-func _DNSService_Query_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
+func _DNSService_Query_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
 	in := new(RawMsg)
-	if err := codec.Unmarshal(buf, in); err != nil {
+	if err := dec(in); err != nil {
 		return nil, err
 	}
 	out, err := srv.(DNSServiceServer).Query(ctx, in)
