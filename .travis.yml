@@ -1,0 +1,14 @@
+# Configuration for https://travis-ci.org/
+
+language: go
+go_import_path: blitiri.com.ar/go/dnss
+
+go:
+    - 1.4
+    - 1.5
+    - tip
+
+script:
+    - go test
+    - go test -bench .
+
