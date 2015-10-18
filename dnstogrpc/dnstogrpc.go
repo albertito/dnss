@@ -7,8 +7,8 @@ import (
 	"sync"
 	"time"
 
-	pb "blitiri.com.ar/go/dnss/proto"
-	"blitiri.com.ar/go/dnss/util"
+	pb "blitiri.com.ar/go/dnss/internal/proto"
+	"blitiri.com.ar/go/dnss/internal/util"
 	"github.com/golang/glog"
 	"github.com/miekg/dns"
 	"golang.org/x/net/context"
