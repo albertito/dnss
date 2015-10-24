@@ -3,6 +3,9 @@
 package dnstogrpc
 
 import (
+	"crypto/rand"
+	"encoding/binary"
+	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -16,6 +19,31 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 )
+
+// newID is a channel used to generate new request IDs.
+// There is a goroutine created at init() time that will get IDs randomly, to
+// help prevent guesses.
+var newId chan uint16
+
+func init() {
+	// Buffer 100 numbers to avoid blocking on crypto rand.
+	newId = make(chan uint16, 100)
+
+	go func() {
+		var id uint16
+		var err error
+
+		for {
+			err = binary.Read(rand.Reader, binary.LittleEndian, &id)
+			if err != nil {
+				panic(fmt.Sprintf("error creating id: %v", err))
+			}
+
+			newId <- id
+		}
+
+	}()
+}
 
 type grpcclient struct {
 	Upstream string
@@ -109,8 +137,10 @@ func (s *Server) Handler(w dns.ResponseWriter, r *dns.Msg) {
 		}
 	}
 
-	// TODO: we should create our own IDs, in case different users pick the
-	// same id and we pass that upstream.
+	// Create our own IDs, in case different users pick the same id and we
+	// pass that upstream.
+	oldid := r.Id
+	r.Id = <-newId
 
 	from_up, err := s.client.Query(r)
 	if err != nil {
@@ -124,6 +154,7 @@ func (s *Server) Handler(w dns.ResponseWriter, r *dns.Msg) {
 		util.TraceAnswer(tr, from_up)
 	}
 
+	from_up.Id = oldid
 	w.WriteMsg(from_up)
 }
 
