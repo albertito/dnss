@@ -121,9 +121,13 @@ func (s *Server) Handler(w dns.ResponseWriter, r *dns.Msg) {
 		tr.LazyPrintf(util.QuestionsToString(r.Question))
 	}
 
-	if s.unqUpstream != "" &&
-		len(r.Question) == 1 &&
-		strings.Count(r.Question[0].Name, ".") <= 1 {
+	// Forward to the unqualified upstream server if:
+	//  - We have one configured.
+	//  - There's only one question in the request, to keep things simple.
+	//  - The question is unqualified (only one '.' in the name).
+	useUnqUpstream := s.unqUpstream != "" && len(r.Question) == 1 &&
+		strings.Count(r.Question[0].Name, ".") <= 1
+	if useUnqUpstream {
 		u, err := dns.Exchange(r, s.unqUpstream)
 		if err == nil {
 			tr.LazyPrintf("used unqualified upstream")
