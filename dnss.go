@@ -80,8 +80,8 @@ func main() {
 
 	// DNS to GRPC.
 	if *enableDNStoGRPC {
-		dtg := dnstogrpc.New(*dnsListenAddr, *grpcUpstream, *grpcClientCAFile,
-			*dnsUnqualifiedUpstream)
+		r := dnstogrpc.NewGRPCResolver(*grpcUpstream, *grpcClientCAFile)
+		dtg := dnstogrpc.New(*dnsListenAddr, r, *dnsUnqualifiedUpstream)
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
