@@ -90,7 +90,7 @@ func (s *Server) Handler(w dns.ResponseWriter, r *dns.Msg) {
 	oldid := r.Id
 	r.Id = <-newId
 
-	from_up, err := s.resolver.Query(r)
+	from_up, err := s.resolver.Query(r, tr)
 	if err != nil {
 		glog.Infof(err.Error())
 		tr.LazyPrintf(err.Error())
@@ -112,6 +112,8 @@ func (s *Server) ListenAndServe() {
 		glog.Errorf("Error initializing: %v", err)
 		return
 	}
+
+	go s.resolver.Maintain()
 
 	glog.Infof("DNS listening on %s", s.Addr)
 

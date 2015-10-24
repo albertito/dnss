@@ -230,8 +230,9 @@ func realMain(m *testing.M) int {
 	}
 
 	// DNS to GRPC server.
-	r := dnstogrpc.NewGRPCResolver(grpcToDnsAddr, tmpDir+"/cert.pem")
-	dtg := dnstogrpc.New(dnsToGrpcAddr, r, "")
+	gr := dnstogrpc.NewGRPCResolver(grpcToDnsAddr, tmpDir+"/cert.pem")
+	cr := dnstogrpc.NewCachingResolver(gr)
+	dtg := dnstogrpc.New(dnsToGrpcAddr, cr, "")
 	go dtg.ListenAndServe()
 
 	// GRPC to DNS server.
