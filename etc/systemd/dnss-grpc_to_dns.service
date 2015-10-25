@@ -1,0 +1,23 @@
+[Unit]
+Description = dnss daemon - GRPC to DNS mode
+
+[Service]
+ExecStart = /usr/bin/dnss --enable_grpc_to_dns \
+        --grpc_key=/etc/ssl/dnss/key.pem \
+        --grpc_cert=/etc/ssl/dnss/cert.pem
+        --monitoring_listen_addr=127.0.0.1:9981 \
+        --logtostderr
+
+Type = simple
+
+User = ddns
+Group = ddns
+
+# Simple security measures just in case.
+CapabilityBoundingSet =
+ProtectSystem = full
+
+
+[Install]
+WantedBy = multi-user.target
+

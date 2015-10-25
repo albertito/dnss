@@ -1,0 +1,31 @@
+[Unit]
+Description = dnss daemon - DNS to GRPC mode
+
+# Note we get the sockets via systemd, see the matching .socket configuration.
+
+[Service]
+ExecStart = /usr/bin/dnss --dns_to_grpc \
+	--dns_listen_addr=systemd \
+        --grpc_client_cafile=/etc/ssl/dnss/1.2.3.4-cert.pem \
+	--grpc_upstream=1.2.3.4:9953 \
+        --monitoring_listen_addr=127.0.0.1:9982 \
+	--logtostderr
+
+Type = simple
+
+
+# The user can be created with no permissions using:
+#
+#   sudo useradd -U dnss -M -d /nonexistent -s /bin/false
+
+User = ddns
+Group = ddns
+
+# Simple security measures just in case.
+CapabilityBoundingSet = CAP_NET_BIND_SERVICE
+ProtectSystem = full
+
+
+[Install]
+WantedBy = multi-user.target
+

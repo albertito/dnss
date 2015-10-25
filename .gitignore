@@ -1,1 +1,6 @@
 .*.swp
+
+# Help prevent accidental inclusion of certificates and keys.
+*.pem
+*.crt
+*.key
