@@ -6,9 +6,11 @@ import (
 	"crypto/rand"
 	"encoding/binary"
 	"fmt"
+	"net"
 	"strings"
 	"sync"
 
+	"github.com/coreos/go-systemd/activation"
 	"github.com/golang/glog"
 	"github.com/miekg/dns"
 	"golang.org/x/net/trace"
@@ -115,6 +117,14 @@ func (s *Server) ListenAndServe() {
 
 	go s.resolver.Maintain()
 
+	if s.Addr == "systemd" {
+		s.systemdServe()
+	} else {
+		s.classicServe()
+	}
+}
+
+func (s *Server) classicServe() {
 	glog.Infof("DNS listening on %s", s.Addr)
 
 	var wg sync.WaitGroup
@@ -123,6 +133,7 @@ func (s *Server) ListenAndServe() {
 		defer wg.Done()
 		err := dns.ListenAndServe(s.Addr, "udp", dns.HandlerFunc(s.Handler))
 		glog.Errorf("Exiting UDP: %v", err)
+		panic(err)
 	}()
 
 	wg.Add(1)
@@ -130,7 +141,63 @@ func (s *Server) ListenAndServe() {
 		defer wg.Done()
 		err := dns.ListenAndServe(s.Addr, "tcp", dns.HandlerFunc(s.Handler))
 		glog.Errorf("Exiting TCP: %v", err)
+		panic(err)
 	}()
 
 	wg.Wait()
+}
+
+func (s *Server) systemdServe() {
+	// We will usually have at least one TCP socket and one UDP socket.
+	// PacketConns are UDP sockets, Listeners are TCP sockets.
+	// To make things more annoying, both can (and usually will) have nil
+	// entries for the file descriptors that don't match.
+	pconns, err := activation.PacketConns(false)
+	if err != nil {
+		glog.Errorf("Error getting systemd packet conns: %v", err)
+		return
+	}
+
+	listeners, err := activation.Listeners(false)
+	if err != nil {
+		glog.Errorf("Error getting systemd listeners: %v", err)
+		return
+	}
+
+	var wg sync.WaitGroup
+
+	for _, pconn := range pconns {
+		if pconn == nil {
+			continue
+		}
+
+		wg.Add(1)
+		go func(c net.PacketConn) {
+			defer wg.Done()
+			glog.Infof("Activate on packet connection (UDP)")
+			err := dns.ActivateAndServe(nil, c, dns.HandlerFunc(s.Handler))
+			glog.Errorf("Exiting UDP listener: %v", err)
+			panic(err)
+		}(pconn)
+	}
+
+	for _, lis := range listeners {
+		if lis == nil {
+			continue
+		}
+
+		wg.Add(1)
+		go func(l net.Listener) {
+			defer wg.Done()
+			glog.Infof("Activate on listening socket (TCP)")
+			err := dns.ActivateAndServe(l, nil, dns.HandlerFunc(s.Handler))
+			glog.Errorf("Exiting TCP listener: %v", err)
+			panic(err)
+		}(lis)
+	}
+
+	wg.Wait()
+
+	// We should only get here if there were no useful sockets.
+	glog.Errorf("No systemd sockets, did you forget the .socket?")
 }
