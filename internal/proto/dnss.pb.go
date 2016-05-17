@@ -27,19 +27,32 @@ var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
 
+// This is a compile-time assertion to ensure that this generated file
+// is compatible with the proto package it is being compiled against.
+const _ = proto.ProtoPackageIsVersion1
+
 type RawMsg struct {
 	// DNS-encoded message.
 	// A horrible hack, but will do for now.
 	Data []byte `protobuf:"bytes,1,opt,name=data,proto3" json:"data,omitempty"`
 }
 
-func (m *RawMsg) Reset()         { *m = RawMsg{} }
-func (m *RawMsg) String() string { return proto.CompactTextString(m) }
-func (*RawMsg) ProtoMessage()    {}
+func (m *RawMsg) Reset()                    { *m = RawMsg{} }
+func (m *RawMsg) String() string            { return proto.CompactTextString(m) }
+func (*RawMsg) ProtoMessage()               {}
+func (*RawMsg) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{0} }
+
+func init() {
+	proto.RegisterType((*RawMsg)(nil), "dnss.RawMsg")
+}
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ context.Context
 var _ grpc.ClientConn
+
+// This is a compile-time assertion to ensure that this generated file
+// is compatible with the grpc package it is being compiled against.
+const _ = grpc.SupportPackageIsVersion2
 
 // Client API for DNSService service
 
@@ -74,16 +87,22 @@ func RegisterDNSServiceServer(s *grpc.Server, srv DNSServiceServer) {
 	s.RegisterService(&_DNSService_serviceDesc, srv)
 }
 
-func _DNSService_Query_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+func _DNSService_Query_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(RawMsg)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
-	out, err := srv.(DNSServiceServer).Query(ctx, in)
-	if err != nil {
-		return nil, err
+	if interceptor == nil {
+		return srv.(DNSServiceServer).Query(ctx, in)
 	}
-	return out, nil
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/dnss.DNSService/Query",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DNSServiceServer).Query(ctx, req.(*RawMsg))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 var _DNSService_serviceDesc = grpc.ServiceDesc{
@@ -96,4 +115,15 @@ var _DNSService_serviceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams: []grpc.StreamDesc{},
+}
+
+var fileDescriptor0 = []byte{
+	// 102 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x09, 0x6e, 0x88, 0x02, 0xff, 0xe2, 0xe2, 0x4a, 0xc9, 0x2b, 0x2e,
+	0xd6, 0x2b, 0x28, 0xca, 0x2f, 0xc9, 0x17, 0x62, 0x01, 0xb1, 0x95, 0xc4, 0xb8, 0xd8, 0x82, 0x12,
+	0xcb, 0x7d, 0x8b, 0xd3, 0x85, 0x78, 0xb8, 0x58, 0x52, 0x12, 0x4b, 0x12, 0x25, 0x18, 0x15, 0x18,
+	0x35, 0x78, 0x8c, 0x0c, 0xb9, 0xb8, 0x5c, 0xfc, 0x82, 0x83, 0x53, 0x8b, 0xca, 0x32, 0x93, 0x53,
+	0x85, 0x94, 0xb9, 0x58, 0x03, 0x4b, 0x53, 0x8b, 0x2a, 0x85, 0x78, 0xf4, 0xc0, 0x26, 0x40, 0xb4,
+	0x48, 0xa1, 0xf0, 0x92, 0xd8, 0xc0, 0xe6, 0x1a, 0x03, 0x02, 0x00, 0x00, 0xff, 0xff, 0x3d, 0x75,
+	0xab, 0x35, 0x65, 0x00, 0x00, 0x00,
 }
