@@ -1,4 +1,8 @@
 .*.swp
+.*
+
+# Ignore the resulting binary.
+dnss
 
 # Help prevent accidental inclusion of certificates and keys.
 *.pem
