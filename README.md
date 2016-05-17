@@ -1,18 +1,39 @@
 
-# dnss - Encapsulate DNS over GRPC
+# dnss
 
-dnss encapsulates DNS over GRPC.
+dnss is a tool for encapsulating DNS over more secure protocols.
+
+
+## DNS over HTTPS
+
+dnss can act as a DNS-over-HTTPS proxy, using https://dns.google.com as a
+server.
+
+```
++--------+       +----------------+        +----------------+
+|        |       |     dnss       |        |                |
+| client +-------> (dns-to-https) +--------> dns.google.com |
+|        |  DNS  |                |        |                |
++--------+  UDP  +----------------+  HTTP  +----------------+
+                                     SSL
+                                     TCP
+```
+
+
+## DNS over GRPC
+
+dnss can encapsulate DNS over GRPC.
 
 It can be useful when you want to use a particular DNS server, but don't want
 some parts of the network in between to be able to see your traffic.
 
 
 ```
-+--------+       +---------------+        +---------------+       +------------+
-|        |       |     dnss      |        |     dnss      |       |            |
-| client +-------> (dns-to-grpc) +--------> (grpc-to-dns) +-------> DNS server |
-|        |  DNS  |               |  DNS   |               |  DNS  |            |
-+--------+  UDP  +---------------+  GRPC  +---------------+  UDP  +------------+
++--------+       +---------------+        +---------------+      +------------+
+|        |       |     dnss      |        |     dnss      |      |            |
+| client +-------> (dns-to-grpc) +--------> (grpc-to-dns) +------> DNS server |
+|        |  DNS  |               |  DNS   |               | DNS  |            |
++--------+  UDP  +---------------+  GRPC  +---------------+ UDP  +------------+
                                     SSL
                                     TCP
 ```

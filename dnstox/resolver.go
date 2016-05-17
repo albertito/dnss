@@ -1,9 +1,14 @@
 package dnstox
 
 import (
+	"crypto/tls"
+	"crypto/x509"
+	"encoding/json"
 	"expvar"
 	"fmt"
+	"io/ioutil"
 	"net/http"
+	"net/url"
 	"sync"
 	"time"
 
@@ -31,6 +36,9 @@ type Resolver interface {
 	// Query responds to a DNS query.
 	Query(r *dns.Msg, tr trace.Trace) (*dns.Msg, error)
 }
+
+///////////////////////////////////////////////////////////////////////////
+// GRPC resolver.
 
 // grpcResolver implements the Resolver interface by querying a server via
 // GRPC.
@@ -91,6 +99,174 @@ func (g *grpcResolver) Query(r *dns.Msg, tr trace.Trace) (*dns.Msg, error) {
 	err = m.Unpack(reply.Data)
 	return m, err
 }
+
+///////////////////////////////////////////////////////////////////////////
+// HTTPS resolver.
+
+// httpsResolver implements the Resolver interface by querying a server via
+// DNS-over-HTTPS (like https://dns.google.com).
+type httpsResolver struct {
+	Upstream string
+	CAFile   string
+	client   *http.Client
+}
+
+func loadCertPool(caFile string) (*x509.CertPool, error) {
+	pemData, err := ioutil.ReadFile(caFile)
+	if err != nil {
+		return nil, err
+	}
+
+	pool := x509.NewCertPool()
+	if !pool.AppendCertsFromPEM(pemData) {
+		return nil, fmt.Errorf("Error appending certificates")
+	}
+
+	return pool, nil
+}
+
+func NewHTTPSResolver(upstream, caFile string) *httpsResolver {
+	return &httpsResolver{
+		Upstream: upstream,
+		CAFile:   caFile,
+	}
+}
+
+func (r *httpsResolver) Init() error {
+	r.client = &http.Client{
+		// Give our HTTP requests 4 second timeouts: DNS usually doesn't wait
+		// that long anyway, but this helps with slow connections.
+		Timeout: 4 * time.Second,
+	}
+
+	if r.CAFile == "" {
+		return nil
+	}
+
+	pool, err := loadCertPool(r.CAFile)
+	if err != nil {
+		return err
+	}
+
+	r.client.Transport = &http.Transport{
+		TLSClientConfig: &tls.Config{
+			ClientCAs: pool,
+		},
+	}
+
+	return nil
+}
+
+func (r *httpsResolver) Maintain() {
+}
+
+// Structure for parsing JSON responses.
+type jsonResponse struct {
+	Status   int
+	TC       bool
+	RD       bool
+	RA       bool
+	AD       bool
+	CD       bool
+	Question []jsonRR
+	Answer   []jsonRR
+}
+
+type jsonRR struct {
+	Name string `json:name`
+	Type uint16 `json:type`
+	TTL  uint32 `json:TTL`
+	Data string `json:data`
+}
+
+func (r *httpsResolver) Query(req *dns.Msg, tr trace.Trace) (*dns.Msg, error) {
+	// Only answer single-question queries.
+	// In practice, these are all we get, and almost no server supports
+	// multi-question requests anyway.
+	if len(req.Question) != 1 {
+		return nil, fmt.Errorf("multi-question query")
+	}
+
+	question := req.Question[0]
+	// Only answer IN-class queries, which are the ones used in practice.
+	if question.Qclass != dns.ClassINET {
+		return nil, fmt.Errorf("query class != IN")
+	}
+
+	// Build the query and send the request.
+	v := url.Values{}
+	v.Set("name", question.Name)
+	v.Set("type", dns.TypeToString[question.Qtype])
+	// TODO: add random_padding.
+
+	url := r.Upstream + "?" + v.Encode()
+	if glog.V(3) {
+		tr.LazyPrintf("GET %q", url)
+	}
+
+	hr, err := r.client.Get(url)
+	if err != nil {
+		return nil, fmt.Errorf("GET failed: %v", err)
+	}
+	tr.LazyPrintf("%s  %s", hr.Proto, hr.Status)
+	defer hr.Body.Close()
+
+	if hr.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("Response status: %s", hr.Status)
+	}
+
+	// Read the HTTPS response, and parse the JSON.
+	body, err := ioutil.ReadAll(hr.Body)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to read body: %v", err)
+	}
+
+	jr := &jsonResponse{}
+	err = json.Unmarshal(body, jr)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to unmarshall: %v", err)
+	}
+
+	// Build the DNS response.
+	resp := &dns.Msg{
+		MsgHdr: dns.MsgHdr{
+			Id:       req.Id,
+			Response: true,
+			Opcode:   req.Opcode,
+			Rcode:    jr.Status,
+
+			Truncated:          jr.TC,
+			RecursionDesired:   jr.RD,
+			RecursionAvailable: jr.RA,
+			AuthenticatedData:  jr.AD,
+			CheckingDisabled:   jr.CD,
+		},
+	}
+
+	if len(jr.Question) != 1 {
+		return nil, fmt.Errorf("Wrong number of questions in the response")
+	}
+	resp.SetQuestion(jr.Question[0].Name, jr.Question[0].Type)
+
+	for _, answer := range jr.Answer {
+		// TODO: This "works" but is quite hacky. Is there a better way,
+		// without doing lots of data parsing?
+		s := fmt.Sprintf("%s %d IN %s %s",
+			answer.Name, answer.TTL,
+			dns.TypeToString[answer.Type], answer.Data)
+		rr, err := dns.NewRR(s)
+		if err != nil {
+			return nil, fmt.Errorf("Error parsing answer: %v", err)
+		}
+
+		resp.Answer = append(resp.Answer, rr)
+	}
+
+	return resp, nil
+}
+
+///////////////////////////////////////////////////////////////////////////
+// Caching resolver.
 
 // cachingResolver implements a caching Resolver.
 // It is backed by another Resolver, but will cache results.

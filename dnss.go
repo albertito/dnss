@@ -20,16 +20,17 @@ import (
 )
 
 var (
-	enableDNStoGRPC = flag.Bool("enable_dns_to_grpc", false,
-		"enable DNS-to-GRPC server")
 	dnsListenAddr = flag.String("dns_listen_addr", ":53",
 		"address to listen on for DNS")
+	dnsUnqualifiedUpstream = flag.String("dns_unqualified_upstream", "",
+		"DNS server to forward unqualified requests to")
+
+	enableDNStoGRPC = flag.Bool("enable_dns_to_grpc", false,
+		"enable DNS-to-GRPC server")
 	grpcUpstream = flag.String("grpc_upstream", "localhost:9953",
 		"address of the upstream GRPC server")
 	grpcClientCAFile = flag.String("grpc_client_cafile", "",
 		"CA file to use for the GRPC client")
-	dnsUnqualifiedUpstream = flag.String("dns_unqualified_upstream", "",
-		"DNS server to forward unqualified requests to")
 
 	enableGRPCtoDNS = flag.Bool("enable_grpc_to_dns", false,
 		"enable GRPC-to-DNS server")
@@ -37,6 +38,14 @@ var (
 		"address to listen on for GRPC")
 	dnsUpstream = flag.String("dns_upstream", "8.8.8.8:53",
 		"address of the upstream DNS server")
+
+	enableDNStoHTTPS = flag.Bool("enable_dns_to_https", false,
+		"enable DNS-to-HTTPS proxy")
+	httpsUpstream = flag.String("https_upstream",
+		"https://dns.google.com/resolve",
+		"URL of upstream DNS-to-HTTP server")
+	httpsClientCAFile = flag.String("https_client_cafile", "",
+		"CA file to use for the HTTPS client")
 
 	grpcCert = flag.String("grpc_cert", "",
 		"certificate file for the GRPC server")
@@ -71,9 +80,18 @@ func main() {
 		go http.ListenAndServe(*monitoringListenAddr, nil)
 	}
 
-	if !*enableDNStoGRPC && !*enableGRPCtoDNS {
-		glog.Fatal(
-			"Error: pass --enable_dns_to_grpc or --enable_grpc_to_dns")
+	if !*enableDNStoGRPC && !*enableGRPCtoDNS && !*enableDNStoHTTPS {
+		glog.Error("Need to set one of the following:")
+		glog.Error("  --enable_dns_to_https")
+		glog.Error("  --enable_dns_to_grpc")
+		glog.Error("  --enable_grpc_to_dns")
+		glog.Fatal("")
+	}
+
+	if *enableDNStoGRPC && *enableDNStoHTTPS {
+		glog.Error("The following options cannot be set at the same time:")
+		glog.Error("  --enable_dns_to_grpc and --enable_dns_to_https")
+		glog.Fatal("")
 	}
 
 	var wg sync.WaitGroup
@@ -102,6 +120,18 @@ func main() {
 		go func() {
 			defer wg.Done()
 			gtd.ListenAndServe()
+		}()
+	}
+
+	// DNS to HTTPS.
+	if *enableDNStoHTTPS {
+		r := dnstox.NewHTTPSResolver(*httpsUpstream, *httpsClientCAFile)
+		cr := dnstox.NewCachingResolver(r)
+		dth := dnstox.New(*dnsListenAddr, cr, *dnsUnqualifiedUpstream)
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			dth.ListenAndServe()
 		}()
 	}
 
