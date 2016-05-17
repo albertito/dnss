@@ -9,6 +9,7 @@ ExecStart = /usr/bin/dnss --enable_grpc_to_dns \
         --logtostderr
 
 Type = simple
+Restart = always
 
 User = ddns
 Group = ddns

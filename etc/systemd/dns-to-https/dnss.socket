@@ -1,0 +1,11 @@
+# Sockets for dnss.
+#
+# This lets dnss run unprivileged.
+# We typically want one UDP and one TCP socket.
+
+[Socket]
+ListenDatagram=53
+ListenStream=53
+
+[Install]
+WantedBy=sockets.target

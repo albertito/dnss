@@ -1,4 +1,4 @@
-# Sockets for dnss in DNS to GRPC mode.
+# Sockets for dnss.
 #
 # This lets dnss run unprivileged.
 # We typically want one UDP and one TCP socket.
