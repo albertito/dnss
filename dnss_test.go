@@ -19,7 +19,7 @@ import (
 	"github.com/golang/glog"
 	"github.com/miekg/dns"
 
-	"blitiri.com.ar/go/dnss/dnstogrpc"
+	"blitiri.com.ar/go/dnss/dnstox"
 	"blitiri.com.ar/go/dnss/grpctodns"
 )
 
@@ -230,9 +230,9 @@ func realMain(m *testing.M) int {
 	}
 
 	// DNS to GRPC server.
-	gr := dnstogrpc.NewGRPCResolver(grpcToDnsAddr, tmpDir+"/cert.pem")
-	cr := dnstogrpc.NewCachingResolver(gr)
-	dtg := dnstogrpc.New(dnsToGrpcAddr, cr, "")
+	gr := dnstox.NewGRPCResolver(grpcToDnsAddr, tmpDir+"/cert.pem")
+	cr := dnstox.NewCachingResolver(gr)
+	dtg := dnstox.New(dnsToGrpcAddr, cr, "")
 	go dtg.ListenAndServe()
 
 	// GRPC to DNS server.

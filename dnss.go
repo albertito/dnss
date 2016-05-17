@@ -15,7 +15,7 @@ import (
 	"google.golang.org/grpc"
 	_ "google.golang.org/grpc/grpclog/glogger"
 
-	"blitiri.com.ar/go/dnss/dnstogrpc"
+	"blitiri.com.ar/go/dnss/dnstox"
 	"blitiri.com.ar/go/dnss/grpctodns"
 )
 
@@ -80,9 +80,9 @@ func main() {
 
 	// DNS to GRPC.
 	if *enableDNStoGRPC {
-		r := dnstogrpc.NewGRPCResolver(*grpcUpstream, *grpcClientCAFile)
-		cr := dnstogrpc.NewCachingResolver(r)
-		dtg := dnstogrpc.New(*dnsListenAddr, cr, *dnsUnqualifiedUpstream)
+		r := dnstox.NewGRPCResolver(*grpcUpstream, *grpcClientCAFile)
+		cr := dnstox.NewCachingResolver(r)
+		dtg := dnstox.New(*dnsListenAddr, cr, *dnsUnqualifiedUpstream)
 		wg.Add(1)
 		go func() {
 			defer wg.Done()

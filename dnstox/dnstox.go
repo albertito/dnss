@@ -1,6 +1,6 @@
 // DNS to GRPC.
 
-package dnstogrpc
+package dnstox
 
 import (
 	"crypto/rand"
@@ -58,7 +58,7 @@ func New(addr string, resolver Resolver, unqUpstream string) *Server {
 }
 
 func (s *Server) Handler(w dns.ResponseWriter, r *dns.Msg) {
-	tr := trace.New("dnstogrpc", "Handler")
+	tr := trace.New("dnstox", "Handler")
 	defer tr.Finish()
 
 	tr.LazyPrintf("from:%v   id:%v", w.RemoteAddr(), r.Id)

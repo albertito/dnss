@@ -1,4 +1,4 @@
-package dnstogrpc
+package dnstox
 
 import (
 	"expvar"
@@ -169,8 +169,8 @@ func (c *cachingResolver) Init() error {
 	// We register the debug handlers.
 	// Note these are global by nature, if you create more than once resolver,
 	// the last one will prevail.
-	http.HandleFunc("/debug/dnstogrpc/cache/dump", c.DumpCache)
-	http.HandleFunc("/debug/dnstogrpc/cache/flush", c.FlushCache)
+	http.HandleFunc("/debug/dnstox/cache/dump", c.DumpCache)
+	http.HandleFunc("/debug/dnstox/cache/flush", c.FlushCache)
 	return nil
 }
 
@@ -223,7 +223,7 @@ func (c *cachingResolver) Maintain() {
 	go c.back.Maintain()
 
 	for now := range time.Tick(maintenancePeriod) {
-		tr := trace.New("dnstogrpc.Cache", "GC")
+		tr := trace.New("dnstox.Cache", "GC")
 		var total, expired int
 
 		c.mu.Lock()
