@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"strings"
 	"sync"
 	"time"
 
@@ -22,8 +23,15 @@ import (
 var (
 	dnsListenAddr = flag.String("dns_listen_addr", ":53",
 		"address to listen on for DNS")
+
 	dnsUnqualifiedUpstream = flag.String("dns_unqualified_upstream", "",
 		"DNS server to forward unqualified requests to")
+
+	fallbackUpstream = flag.String("fallback_upstream", "8.8.8.8:53",
+		"DNS server to resolve domains in --fallback_domains")
+	fallbackDomains = flag.String("fallback_domains", "dns.google.com.",
+		"Domains we resolve via DNS, using --fallback_upstream"+
+			" (space-separated list)")
 
 	enableDNStoGRPC = flag.Bool("enable_dns_to_grpc", false,
 		"enable DNS-to-GRPC server")
@@ -101,6 +109,8 @@ func main() {
 		r := dnstox.NewGRPCResolver(*grpcUpstream, *grpcClientCAFile)
 		cr := dnstox.NewCachingResolver(r)
 		dtg := dnstox.New(*dnsListenAddr, cr, *dnsUnqualifiedUpstream)
+		dtg.SetFallback(
+			*fallbackUpstream, strings.Split(*fallbackDomains, " "))
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
@@ -128,6 +138,8 @@ func main() {
 		r := dnstox.NewHTTPSResolver(*httpsUpstream, *httpsClientCAFile)
 		cr := dnstox.NewCachingResolver(r)
 		dth := dnstox.New(*dnsListenAddr, cr, *dnsUnqualifiedUpstream)
+		dth.SetFallback(
+			*fallbackUpstream, strings.Split(*fallbackDomains, " "))
 		wg.Add(1)
 		go func() {
 			defer wg.Done()

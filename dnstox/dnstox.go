@@ -47,13 +47,24 @@ type Server struct {
 	Addr        string
 	unqUpstream string
 	resolver    Resolver
+
+	fallbackDomains  map[string]struct{}
+	fallbackUpstream string
 }
 
 func New(addr string, resolver Resolver, unqUpstream string) *Server {
 	return &Server{
-		Addr:        addr,
-		resolver:    resolver,
-		unqUpstream: unqUpstream,
+		Addr:            addr,
+		resolver:        resolver,
+		unqUpstream:     unqUpstream,
+		fallbackDomains: map[string]struct{}{},
+	}
+}
+
+func (s *Server) SetFallback(upstream string, domains []string) {
+	s.fallbackUpstream = upstream
+	for _, d := range domains {
+		s.fallbackDomains[d] = struct{}{}
 	}
 }
 
@@ -67,11 +78,18 @@ func (s *Server) Handler(w dns.ResponseWriter, r *dns.Msg) {
 		tr.LazyPrintf(util.QuestionsToString(r.Question))
 	}
 
+	// We only support single-question queries.
+	if len(r.Question) != 1 {
+		tr.LazyPrintf("len(Q) != 1, failing")
+		dns.HandleFailed(w, r)
+		return
+	}
+
 	// Forward to the unqualified upstream server if:
 	//  - We have one configured.
 	//  - There's only one question in the request, to keep things simple.
 	//  - The question is unqualified (only one '.' in the name).
-	useUnqUpstream := s.unqUpstream != "" && len(r.Question) == 1 &&
+	useUnqUpstream := s.unqUpstream != "" &&
 		strings.Count(r.Question[0].Name, ".") <= 1
 	if useUnqUpstream {
 		u, err := dns.Exchange(r, s.unqUpstream)
@@ -81,10 +99,29 @@ func (s *Server) Handler(w dns.ResponseWriter, r *dns.Msg) {
 				util.TraceAnswer(tr, u)
 			}
 			w.WriteMsg(u)
-			return
 		} else {
 			tr.LazyPrintf("unqualified upstream error: %v", err)
+			dns.HandleFailed(w, r)
 		}
+
+		return
+	}
+
+	// Forward to the fallback server if the domain is on our list.
+	if _, ok := s.fallbackDomains[r.Question[0].Name]; ok {
+		u, err := dns.Exchange(r, s.fallbackUpstream)
+		if err == nil {
+			tr.LazyPrintf("used fallback upstream (%s)", s.fallbackUpstream)
+			if glog.V(3) {
+				util.TraceAnswer(tr, u)
+			}
+			w.WriteMsg(u)
+		} else {
+			tr.LazyPrintf("fallback upstream error: %v", err)
+			dns.HandleFailed(w, r)
+		}
+
+		return
 	}
 
 	// Create our own IDs, in case different users pick the same id and we
