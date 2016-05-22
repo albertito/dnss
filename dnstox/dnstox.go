@@ -148,8 +148,7 @@ func (s *Server) Handler(w dns.ResponseWriter, r *dns.Msg) {
 func (s *Server) ListenAndServe() {
 	err := s.resolver.Init()
 	if err != nil {
-		glog.Errorf("Error initializing: %v", err)
-		return
+		glog.Fatalf("Error initializing: %v", err)
 	}
 
 	go s.resolver.Maintain()
@@ -169,16 +168,14 @@ func (s *Server) classicServe() {
 	go func() {
 		defer wg.Done()
 		err := dns.ListenAndServe(s.Addr, "udp", dns.HandlerFunc(s.Handler))
-		glog.Errorf("Exiting UDP: %v", err)
-		panic(err)
+		glog.Fatalf("Exiting UDP: %v", err)
 	}()
 
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
 		err := dns.ListenAndServe(s.Addr, "tcp", dns.HandlerFunc(s.Handler))
-		glog.Errorf("Exiting TCP: %v", err)
-		panic(err)
+		glog.Fatalf("Exiting TCP: %v", err)
 	}()
 
 	wg.Wait()
@@ -191,14 +188,12 @@ func (s *Server) systemdServe() {
 	// entries for the file descriptors that don't match.
 	pconns, err := activation.PacketConns(false)
 	if err != nil {
-		glog.Errorf("Error getting systemd packet conns: %v", err)
-		return
+		glog.Fatalf("Error getting systemd packet conns: %v", err)
 	}
 
 	listeners, err := activation.Listeners(false)
 	if err != nil {
-		glog.Errorf("Error getting systemd listeners: %v", err)
-		return
+		glog.Fatalf("Error getting systemd listeners: %v", err)
 	}
 
 	var wg sync.WaitGroup
@@ -213,8 +208,7 @@ func (s *Server) systemdServe() {
 			defer wg.Done()
 			glog.Infof("Activate on packet connection (UDP)")
 			err := dns.ActivateAndServe(nil, c, dns.HandlerFunc(s.Handler))
-			glog.Errorf("Exiting UDP listener: %v", err)
-			panic(err)
+			glog.Fatalf("Exiting UDP listener: %v", err)
 		}(pconn)
 	}
 
@@ -228,13 +222,12 @@ func (s *Server) systemdServe() {
 			defer wg.Done()
 			glog.Infof("Activate on listening socket (TCP)")
 			err := dns.ActivateAndServe(l, nil, dns.HandlerFunc(s.Handler))
-			glog.Errorf("Exiting TCP listener: %v", err)
-			panic(err)
+			glog.Fatalf("Exiting TCP listener: %v", err)
 		}(lis)
 	}
 
 	wg.Wait()
 
 	// We should only get here if there were no useful sockets.
-	glog.Errorf("No systemd sockets, did you forget the .socket?")
+	glog.Fatalf("No systemd sockets, did you forget the .socket?")
 }

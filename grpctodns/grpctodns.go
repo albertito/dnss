@@ -92,14 +92,12 @@ func (s *Server) Query(ctx context.Context, in *pb.RawMsg) (*pb.RawMsg, error) {
 func (s *Server) ListenAndServe() {
 	lis, err := net.Listen("tcp", s.Addr)
 	if err != nil {
-		glog.Errorf("failed to listen: %v", err)
-		return
+		glog.Fatalf("failed to listen: %v", err)
 	}
 
 	ta, err := credentials.NewServerTLSFromFile(s.CertFile, s.KeyFile)
 	if err != nil {
-		glog.Errorf("failed to create TLS transport auth: %v", err)
-		return
+		glog.Fatalf("failed to create TLS transport auth: %v", err)
 	}
 
 	grpcServer := grpc.NewServer(grpc.Creds(ta))
@@ -107,5 +105,5 @@ func (s *Server) ListenAndServe() {
 
 	glog.Infof("GRPC listening on %s", s.Addr)
 	err = grpcServer.Serve(lis)
-	glog.Infof("GRPC exiting: %s", err)
+	glog.Fatalf("GRPC exiting: %s", err)
 }
