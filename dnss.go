@@ -2,22 +2,22 @@ package main
 
 import (
 	"flag"
+	"net/http"
 	"strings"
 	"sync"
 	"time"
 
-	// Register pprof handlers for monitoring and debugging.
-	"net/http"
-	_ "net/http/pprof"
+	"blitiri.com.ar/go/dnss/internal/dnstox"
+	"blitiri.com.ar/go/dnss/internal/grpctodns"
 
 	"github.com/golang/glog"
+	"google.golang.org/grpc"
+
+	// Register pprof handlers for monitoring and debugging.
+	_ "net/http/pprof"
 
 	// Make GRPC log to glog.
-	"google.golang.org/grpc"
 	_ "google.golang.org/grpc/grpclog/glogger"
-
-	"blitiri.com.ar/go/dnss/dnstox"
-	"blitiri.com.ar/go/dnss/grpctodns"
 )
 
 var (

@@ -16,11 +16,11 @@ import (
 	"testing"
 	"time"
 
+	"blitiri.com.ar/go/dnss/internal/dnstox"
+	"blitiri.com.ar/go/dnss/internal/grpctodns"
+
 	"github.com/golang/glog"
 	"github.com/miekg/dns"
-
-	"blitiri.com.ar/go/dnss/dnstox"
-	"blitiri.com.ar/go/dnss/grpctodns"
 )
 
 const (
