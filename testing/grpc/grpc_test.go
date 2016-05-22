@@ -1,5 +1,5 @@
-// Tests for dnss.
-package main
+// Tests for dnss in GRPC modes.
+package grpc
 
 import (
 	"crypto/rand"
@@ -18,6 +18,7 @@ import (
 
 	"blitiri.com.ar/go/dnss/internal/dnstox"
 	"blitiri.com.ar/go/dnss/internal/grpctodns"
+	"blitiri.com.ar/go/dnss/testing/util"
 
 	"github.com/golang/glog"
 	"github.com/miekg/dns"
@@ -75,11 +76,11 @@ func manyDNSQueries(b *testing.B, addr string) {
 	}
 }
 
-func BenchmarkDirect(b *testing.B) {
+func BenchmarkGRPCDirect(b *testing.B) {
 	manyDNSQueries(b, dnsSrvAddr)
 }
 
-func BenchmarkWithProxy(b *testing.B) {
+func BenchmarkGRPCWithProxy(b *testing.B) {
 	manyDNSQueries(b, dnsToGrpcAddr)
 }
 
@@ -182,33 +183,6 @@ func generateCert(path string) error {
 	return nil
 }
 
-// waitForServers waits 5 seconds for the servers to start, and returns an
-// error if they fail to do so.
-// It does this by repeatedly querying the dns-to-grpc server until it either
-// replies or times out. Note we do not do any validation of the reply.
-func waitForServers() error {
-	conn, err := dns.DialTimeout("udp", dnsToGrpcAddr, 1*time.Second)
-	if err != nil {
-		return fmt.Errorf("dns.Dial error: %v", err)
-	}
-	defer conn.Close()
-
-	after := time.After(5 * time.Second)
-	tick := time.Tick(100 * time.Millisecond)
-	select {
-	case <-after:
-		return fmt.Errorf("timed out")
-	case <-tick:
-		conn.SetDeadline(time.Now().Add(1 * time.Second))
-		err := dnsQuery(conn)
-		if err == nil {
-			return nil
-		}
-	}
-
-	return fmt.Errorf("not reachable")
-}
-
 // realMain is the real main function, which returns the value to pass to
 // os.Exit(). We have to do this so we can use defer.
 func realMain(m *testing.M) int {
@@ -251,7 +225,7 @@ func realMain(m *testing.M) int {
 	go dnsSrv.ListenAndServe()
 
 	// Wait for the servers to start up.
-	err = waitForServers()
+	err = util.WaitForDNSServer(dnsToGrpcAddr)
 	if err != nil {
 		fmt.Printf("Error waiting for the test servers to start: %v\n", err)
 		fmt.Printf("Check the INFO logs for more details\n")
