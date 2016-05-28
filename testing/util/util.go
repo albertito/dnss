@@ -3,6 +3,7 @@ package util
 
 import (
 	"fmt"
+	"testing"
 	"time"
 
 	"github.com/miekg/dns"
@@ -38,3 +39,28 @@ func WaitForDNSServer(addr string) error {
 
 	return fmt.Errorf("not reachable")
 }
+
+// TestTrace implements the tracer.Trace interface, but prints using the test
+// logging infrastructure.
+type TestTrace struct {
+	T *testing.T
+}
+
+func NewTestTrace(t *testing.T) *TestTrace {
+	return &TestTrace{t}
+}
+
+func (t *TestTrace) LazyLog(x fmt.Stringer, sensitive bool) {
+	t.T.Logf("trace %p (%b): %s", t, sensitive, x)
+}
+
+func (t *TestTrace) LazyPrintf(format string, a ...interface{}) {
+	prefix := fmt.Sprintf("trace %p: ", t)
+	t.T.Logf(prefix+format, a...)
+}
+
+func (t *TestTrace) SetError()                           {}
+func (t *TestTrace) SetRecycler(f func(interface{}))     {}
+func (t *TestTrace) SetTraceInfo(traceID, spanID uint64) {}
+func (t *TestTrace) SetMaxEvents(m int)                  {}
+func (t *TestTrace) Finish()                             {}

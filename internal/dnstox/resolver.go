@@ -289,7 +289,9 @@ func NewCachingResolver(back Resolver) *cachingResolver {
 	}
 }
 
-const (
+// Constants that tune the cache.
+// They are declared as variables so we can tweak them for testing.
+var (
 	// Maximum number of entries we keep in the cache.
 	// 2k should be reasonable for a small network.
 	// Keep in mind that increasing this too much will interact negatively
