@@ -106,6 +106,7 @@ func main() {
 	if *enableDNStoGRPC {
 		r := dnstox.NewGRPCResolver(*grpcUpstream, *grpcClientCAFile)
 		cr := dnstox.NewCachingResolver(r)
+		cr.RegisterDebugHandlers()
 		dtg := dnstox.New(*dnsListenAddr, cr, *dnsUnqualifiedUpstream)
 		dtg.SetFallback(
 			*fallbackUpstream, strings.Split(*fallbackDomains, " "))
@@ -135,6 +136,7 @@ func main() {
 	if *enableDNStoHTTPS {
 		r := dnstox.NewHTTPSResolver(*httpsUpstream, *httpsClientCAFile)
 		cr := dnstox.NewCachingResolver(r)
+		cr.RegisterDebugHandlers()
 		dth := dnstox.New(*dnsListenAddr, cr, *dnsUnqualifiedUpstream)
 		dth.SetFallback(
 			*fallbackUpstream, strings.Split(*fallbackDomains, " "))

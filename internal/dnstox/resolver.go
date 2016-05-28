@@ -336,16 +336,16 @@ func init() {
 }
 
 func (c *cachingResolver) Init() error {
-	if err := c.back.Init(); err != nil {
-		return err
-	}
+	return c.back.Init()
+}
 
-	// We register the debug handlers.
-	// Note these are global by nature, if you create more than once resolver,
-	// the last one will prevail.
+// RegisterDebugHandlers registers http debug handlers, which can be accessed
+// from the monitoring server.
+// Note these are global by nature, if you try to register them multiple
+// times, you will get a panic.
+func (c *cachingResolver) RegisterDebugHandlers() {
 	http.HandleFunc("/debug/dnstox/cache/dump", c.DumpCache)
 	http.HandleFunc("/debug/dnstox/cache/flush", c.FlushCache)
-	return nil
 }
 
 func (c *cachingResolver) DumpCache(w http.ResponseWriter, r *http.Request) {
