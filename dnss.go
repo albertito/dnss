@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"net/http"
 	"strings"
 	"sync"
@@ -82,10 +83,7 @@ func main() {
 
 	grpc.EnableTracing = false
 	if *monitoringListenAddr != "" {
-		glog.Infof("Monitoring HTTP server listening on %s",
-			*monitoringListenAddr)
-		grpc.EnableTracing = true
-		go http.ListenAndServe(*monitoringListenAddr, nil)
+		launchMonitoringServer(*monitoringListenAddr)
 	}
 
 	if !*enableDNStoGRPC && !*enableGRPCtoDNS && !*enableDNStoHTTPS {
@@ -148,4 +146,75 @@ func main() {
 	}
 
 	wg.Wait()
+}
+
+func launchMonitoringServer(addr string) {
+	glog.Infof("Monitoring HTTP server listening on %s", addr)
+	grpc.EnableTracing = true
+
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/" {
+			http.NotFound(w, r)
+			return
+		}
+		w.Write([]byte(monitoringHTMLIndex))
+	})
+
+	flags := dumpFlags()
+	http.HandleFunc("/debug/flags", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(flags))
+	})
+
+	go http.ListenAndServe(addr, nil)
+}
+
+// Static index for the monitoring website.
+const monitoringHTMLIndex = `<!DOCTYPE html>
+<html>
+  <head>
+    <title>dnss monitoring</title>
+  </head>
+  <body>
+    <h1>dnss monitoring</h1>
+    <ul>
+      <li><a href="/debug/requests">requests</a>
+          <small><a href="https://godoc.org/golang.org/x/net/trace">
+            (ref)</a></small>
+        <ul>
+          <li><a href="/debug/requests?fam=dnstox&b=11">dnstox latency</a>
+          <li><a href="/debug/requests?fam=dnstox&b=0&exp=1">dnstox trace</a>
+        </ul>
+      <li><a href="/debug/dnstox/cache/dump">cache dump</a>
+      <li><a href="/debug/pprof">pprof</a>
+          <small><a href="https://golang.org/pkg/net/http/pprof/">
+            (ref)</a></small>
+        <ul>
+          <li><a href="/debug/pprof/goroutine?debug=1">goroutines</a>
+        </ul>
+      <li><a href="/debug/flags">flags</a>
+      <li><a href="/debug/vars">public variables</a>
+    </ul>
+  </body>
+</html>
+`
+
+// dumpFlags to a string, for troubleshooting purposes.
+func dumpFlags() string {
+	s := ""
+	visited := make(map[string]bool)
+
+	// Print set flags first, then the rest.
+	flag.Visit(func(f *flag.Flag) {
+		s += fmt.Sprintf("-%s=%s\n", f.Name, f.Value.String())
+		visited[f.Name] = true
+	})
+
+	s += "\n"
+	flag.VisitAll(func(f *flag.Flag) {
+		if !visited[f.Name] {
+			s += fmt.Sprintf("-%s=%s\n", f.Name, f.Value.String())
+		}
+	})
+
+	return s
 }
