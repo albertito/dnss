@@ -227,6 +227,10 @@ func (r *httpsResolver) Query(req *dns.Msg, tr trace.Trace) (*dns.Msg, error) {
 		return nil, fmt.Errorf("Failed to unmarshall: %v", err)
 	}
 
+	if len(jr.Question) != 1 {
+		return nil, fmt.Errorf("Wrong number of questions in the response")
+	}
+
 	// Build the DNS response.
 	resp := &dns.Msg{
 		MsgHdr: dns.MsgHdr{
@@ -241,12 +245,13 @@ func (r *httpsResolver) Query(req *dns.Msg, tr trace.Trace) (*dns.Msg, error) {
 			AuthenticatedData:  jr.AD,
 			CheckingDisabled:   jr.CD,
 		},
+		Question: []dns.Question{
+			dns.Question{
+				Name:   jr.Question[0].Name,
+				Qtype:  jr.Question[0].Type,
+				Qclass: dns.ClassINET,
+			}},
 	}
-
-	if len(jr.Question) != 1 {
-		return nil, fmt.Errorf("Wrong number of questions in the response")
-	}
-	resp.SetQuestion(jr.Question[0].Name, jr.Question[0].Type)
 
 	for _, answer := range jr.Answer {
 		// TODO: This "works" but is quite hacky. Is there a better way,
