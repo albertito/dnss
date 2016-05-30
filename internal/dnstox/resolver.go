@@ -406,7 +406,12 @@ func (c *cachingResolver) Maintain() {
 		for q, ans := range c.answer {
 			newTTL := getTTL(ans) - maintenancePeriod
 			if newTTL > 0 {
-				setTTL(ans, newTTL)
+				// Don't modify in place, create a copy and override.
+				// That way, we avoid races with users that have gotten a
+				// cached answer and are returning it.
+				newans := copyRRSlice(ans)
+				setTTL(newans, newTTL)
+				c.answer[q] = newans
 				continue
 			}
 
@@ -463,6 +468,14 @@ func setTTL(answer []dns.RR, newTTL time.Duration) {
 	for _, rr := range answer {
 		rr.Header().Ttl = uint32(newTTL.Seconds())
 	}
+}
+
+func copyRRSlice(a []dns.RR) []dns.RR {
+	b := make([]dns.RR, 0, len(a))
+	for _, rr := range a {
+		b = append(b, dns.Copy(rr))
+	}
+	return b
 }
 
 func (c *cachingResolver) Query(r *dns.Msg, tr trace.Trace) (*dns.Msg, error) {
