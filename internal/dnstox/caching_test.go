@@ -244,6 +244,31 @@ func TestZeroSize(t *testing.T) {
 }
 
 //
+// === Benchmarks ===
+//
+
+func BenchmarkCacheSimple(b *testing.B) {
+	var err error
+
+	r := NewTestResolver()
+	r.response = newReply(mustNewRR(b, "test. A 1.2.3.4"))
+
+	c := NewCachingResolver(r)
+	c.Init()
+
+	tr := &util.NullTrace{}
+	req := newQuery("test.", dns.TypeA)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, err = c.Query(req, tr)
+		if err != nil {
+			b.Errorf("query failed: %v", err)
+		}
+	}
+}
+
+//
 // === Helpers ===
 //
 
@@ -313,10 +338,10 @@ func queryFail(t *testing.T, c *cachingResolver) *dns.Msg {
 	return resp
 }
 
-func mustNewRR(t *testing.T, s string) dns.RR {
+func mustNewRR(tb testing.TB, s string) dns.RR {
 	rr, err := dns.NewRR(s)
 	if err != nil {
-		t.Fatalf("invalid RR %q: %v", s, err)
+		tb.Fatalf("invalid RR %q: %v", s, err)
 	}
 	return rr
 }

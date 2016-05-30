@@ -64,3 +64,14 @@ func (t *TestTrace) SetRecycler(f func(interface{}))     {}
 func (t *TestTrace) SetTraceInfo(traceID, spanID uint64) {}
 func (t *TestTrace) SetMaxEvents(m int)                  {}
 func (t *TestTrace) Finish()                             {}
+
+// NullTrace implements the tracer.Trace interface, but discards everything.
+type NullTrace struct{}
+
+func (t *NullTrace) LazyLog(x fmt.Stringer, sensitive bool)     {}
+func (t *NullTrace) LazyPrintf(format string, a ...interface{}) {}
+func (t *NullTrace) SetError()                                  {}
+func (t *NullTrace) SetRecycler(f func(interface{}))            {}
+func (t *NullTrace) SetTraceInfo(traceID, spanID uint64)        {}
+func (t *NullTrace) SetMaxEvents(m int)                         {}
+func (t *NullTrace) Finish()                                    {}
