@@ -8,6 +8,7 @@ go:
     - tip
 
 script:
-    - go test
-    - go test -bench .
+    - go test ./...
+    - go test -bench . ./...
+    - go test -race -bench . ./...
 
