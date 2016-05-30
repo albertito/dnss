@@ -71,15 +71,6 @@ func TestBasic(t *testing.T) {
 	if !r.init {
 		t.Errorf("caching resolver did not initialize backing")
 	}
-	go c.Maintain()
-
-	// Check that the back resolver's Maintain() is called.
-	select {
-	case <-r.maintain:
-		t.Log("Maintain() called")
-	case <-time.After(1 * time.Second):
-		t.Errorf("back resolver Maintain() was not called")
-	}
 
 	resetStats()
 
@@ -139,6 +130,14 @@ func TestTTL(t *testing.T) {
 	maintenancePeriod = 50 * time.Millisecond
 	go c.Maintain()
 	resetStats()
+
+	// Check that the back resolver's Maintain() is called.
+	select {
+	case <-r.maintain:
+		t.Log("Maintain() called")
+	case <-time.After(1 * time.Second):
+		t.Errorf("back resolver Maintain() was not called")
+	}
 
 	start := time.Now()
 	for time.Since(start) < 1*time.Second {
