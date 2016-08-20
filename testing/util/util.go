@@ -24,12 +24,10 @@ func WaitForDNSServer(addr string) error {
 	m := &dns.Msg{}
 	m.SetQuestion("unused.", dns.TypeA)
 
-	after := time.After(5 * time.Second)
+	deadline := time.Now().Add(5 * time.Second)
 	tick := time.Tick(100 * time.Millisecond)
-	select {
-	case <-after:
-		return fmt.Errorf("timed out")
-	case <-tick:
+
+	for (<-tick).Before(deadline) {
 		conn.SetDeadline(time.Now().Add(1 * time.Second))
 		conn.WriteMsg(m)
 		_, err := conn.ReadMsg()
@@ -38,7 +36,7 @@ func WaitForDNSServer(addr string) error {
 		}
 	}
 
-	return fmt.Errorf("not reachable")
+	return fmt.Errorf("timed out")
 }
 
 // Get a free (TCP) port. This is hacky and not race-free, but it works well
