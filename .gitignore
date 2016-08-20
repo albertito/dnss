@@ -8,3 +8,7 @@ dnss
 *.pem
 *.crt
 *.key
+
+# Ignore the vendor directory - we don't want to embed everything, we use
+# glide to track upstream changes, but things should work.
+vendor/

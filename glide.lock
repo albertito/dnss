@@ -1,0 +1,37 @@
+hash: 7c3cf09373a10a9df1e6cd5211536c7df297cec6a21fabe892e1fe6bb0ae9299
+updated: 2016-08-20T12:53:03.913443696+01:00
+imports:
+- name: github.com/coreos/go-systemd
+  version: d6c05a1dcbb5ac02b7653da4d99e5db340c20778
+  subpackages:
+  - activation
+- name: github.com/golang/glog
+  version: 23def4e6c14b4da8ac2ed8007337bc5eb5007998
+- name: github.com/golang/protobuf
+  version: f592bd283e9ef86337a432eb50e592278c3d534d
+  subpackages:
+  - proto
+- name: github.com/miekg/dns
+  version: db96a2b759cdef4f11a34506a42eb8d1290c598e
+- name: golang.org/x/net
+  version: 7394c112eae4dba7e96bfcfe738e6373d61772b4
+  subpackages:
+  - context
+  - trace
+  - http2
+  - internal/timeseries
+  - http2/hpack
+  - lex/httplex
+- name: google.golang.org/grpc
+  version: 0032a855ba5c8a3c8e0d71c2deef354b70af1584
+  subpackages:
+  - credentials
+  - grpclog/glogger
+  - codes
+  - grpclog
+  - internal
+  - metadata
+  - naming
+  - transport
+  - peer
+testImports: []
