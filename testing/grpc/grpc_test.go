@@ -24,12 +24,15 @@ import (
 	"github.com/miekg/dns"
 )
 
-const (
-	// TODO: Don't hard-code these.
-	dnsToGrpcAddr = "127.0.0.1:13451"
-	grpcToDnsAddr = "127.0.0.1:13452"
-	dnsSrvAddr    = "127.0.0.1:13453"
-)
+// Addresses to use for testing. These will be picked at initialization time,
+// see init().
+var dnsToGrpcAddr, grpcToDnsAddr, dnsSrvAddr string
+
+func init() {
+	dnsToGrpcAddr = util.GetFreePort()
+	grpcToDnsAddr = util.GetFreePort()
+	dnsSrvAddr = util.GetFreePort()
+}
 
 //
 // === Tests ===

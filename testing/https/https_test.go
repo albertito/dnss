@@ -128,16 +128,16 @@ const jsonNXDOMAIN = ` {
 	  "data": "root. nstld. 2016052201 1800 900 604800 86400" } ] }
 `
 
-const (
-	// TODO: don't hardcode these.
-	DNSAddr string = "127.0.0.1:19251"
-)
+// Address where we will set up the DNS server.
+var DNSAddr string
 
 // realMain is the real main function, which returns the value to pass to
 // os.Exit(). We have to do this so we can use defer.
 func realMain(m *testing.M) int {
 	flag.Parse()
 	defer glog.Flush()
+
+	DNSAddr = util.GetFreePort()
 
 	// Test http server.
 	httpsrv := httptest.NewServer(http.HandlerFunc(DNSHandler))

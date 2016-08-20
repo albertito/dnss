@@ -3,6 +3,7 @@ package util
 
 import (
 	"fmt"
+	"net"
 	"testing"
 	"time"
 
@@ -38,6 +39,14 @@ func WaitForDNSServer(addr string) error {
 	}
 
 	return fmt.Errorf("not reachable")
+}
+
+// Get a free (TCP) port. This is hacky and not race-free, but it works well
+// enough for testing purposes.
+func GetFreePort() string {
+	l, _ := net.Listen("tcp", "localhost:0")
+	defer l.Close()
+	return l.Addr().String()
 }
 
 // TestTrace implements the tracer.Trace interface, but prints using the test
