@@ -4,7 +4,8 @@ language: go
 go_import_path: blitiri.com.ar/go/dnss
 
 go:
-    - 1.5
+    - 1.6
+    - 1.7
     - tip
 
 script:
