@@ -57,7 +57,7 @@ func NewGRPCResolver(upstream, caFile string) *grpcResolver {
 
 func (g *grpcResolver) Init() error {
 	var err error
-	var creds credentials.TransportAuthenticator
+	var creds credentials.TransportCredentials
 	if g.CAFile == "" {
 		creds = credentials.NewClientTLSFromCert(nil, "")
 	} else {
