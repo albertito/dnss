@@ -133,12 +133,21 @@ func NewHTTPSResolver(upstream, caFile string) *httpsResolver {
 }
 
 func (r *httpsResolver) Init() error {
+	transport := &http.Transport{
+		// Take the semi-standard proxy settings from the environment.
+		Proxy: http.ProxyFromEnvironment,
+	}
+
 	r.client = &http.Client{
 		// Give our HTTP requests 4 second timeouts: DNS usually doesn't wait
 		// that long anyway, but this helps with slow connections.
 		Timeout: 4 * time.Second,
+
+		Transport: transport,
 	}
 
+	// If CAFile is empty, we're ok with the defaults (use the system default
+	// CA database).
 	if r.CAFile == "" {
 		return nil
 	}
@@ -148,10 +157,8 @@ func (r *httpsResolver) Init() error {
 		return err
 	}
 
-	r.client.Transport = &http.Transport{
-		TLSClientConfig: &tls.Config{
-			ClientCAs: pool,
-		},
+	transport.TLSClientConfig = &tls.Config{
+		ClientCAs: pool,
 	}
 
 	return nil
