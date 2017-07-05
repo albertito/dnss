@@ -1,20 +1,21 @@
 hash: 7c3cf09373a10a9df1e6cd5211536c7df297cec6a21fabe892e1fe6bb0ae9299
-updated: 2016-11-08T13:43:03.40490918Z
+updated: 2017-07-20T21:39:59.861060145+01:00
 imports:
 - name: github.com/coreos/go-systemd
-  version: d659fb6603e3f57bf01c293c5ffda0debc726d8d
+  version: 24036eb3df68550d24a2736c5d013f4e83366866
   subpackages:
   - activation
 - name: github.com/golang/glog
   version: 23def4e6c14b4da8ac2ed8007337bc5eb5007998
 - name: github.com/golang/protobuf
-  version: 2bc9827a78f95c6665b5fe0abd1fd66b496ae2d8
+  version: 0a4f71a498b7c4812f64969510bcb4eca251e33a
   subpackages:
   - proto
+  - ptypes/any
 - name: github.com/miekg/dns
-  version: 58f52c57ce9df13460ac68200cef30a008b9c468
+  version: 0559e6d230af0a3a7273853cb6994ebea21bfbe5
 - name: golang.org/x/net
-  version: 87635b2611e4683a6f0aa595c36683021a00b2e4
+  version: 7b7efd8000731a766f6cbfa2c04010627521c66e
   subpackages:
   - context
   - http2
@@ -23,17 +24,32 @@ imports:
   - internal/timeseries
   - lex/httplex
   - trace
+- name: golang.org/x/text
+  version: 836efe42bb4aa16aaa17b9c155d8813d336ed720
+  subpackages:
+  - secure/bidirule
+  - transform
+  - unicode/bidi
+  - unicode/norm
+- name: google.golang.org/genproto
+  version: b0a3dcfcd1a9bd48e63634bd8802960804cf8315
+  subpackages:
+  - googleapis/rpc/status
 - name: google.golang.org/grpc
-  version: eddbd11c7ecd001d06777cb87b5ea7af54227907
+  version: 98eab9baf699acbb896058ccc7ae946afce855ac
   subpackages:
   - codes
   - credentials
+  - grpclb/grpc_lb_v1
   - grpclog
   - grpclog/glogger
   - internal
+  - keepalive
   - metadata
   - naming
   - peer
+  - stats
+  - status
   - tap
   - transport
 testImports: []
