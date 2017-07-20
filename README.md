@@ -3,10 +3,15 @@
 
 dnss is a tool for encapsulating DNS over HTTPS.
 
+
 ## Quick start
 
-If you want to set up dnss quickly, in DNS-over-HTTPS mode and using
-https://dns.google.com as a server, you can run the following:
+If you're using Debian or Ubuntu, `apt install dnss` will install a dnss
+instance already configured in DNS-over-HTTPS mode and using
+https://dns.google.com as a server.
+
+
+To do the same manually:
 
 ```
 # If you have Go installed but no environment prepared, do:
@@ -26,10 +31,12 @@ sudo systemctl dnss enable
 ```
 
 
-## DNS over HTTPS
+## DNS to HTTPS proxy
 
-dnss can act as a DNS-over-HTTPS proxy, using https://dns.google.com as a
-server.
+dnss can act as a DNS-to-HTTPS proxy, using https://dns.google.com as a
+server, or anything implementing the same API, which is documented at
+https://developers.google.com/speed/public-dns/docs/dns-over-https (note it's
+in beta and subject to changes).
 
 ```
 +--------+       +----------------+        +----------------+
@@ -40,6 +47,18 @@ server.
                                      SSL
                                      TCP
 ```
+
+
+## HTTPS to DNS proxy
+
+dnss can also act as an HTTPS-to-DNS proxy, implementing the HTTP-based API
+documented at
+https://developers.google.com/speed/public-dns/docs/dns-over-https (note it's
+in beta and subject to changes).
+
+You can use this instead of https://dns.google.com if you want more control
+over the servers and the final DNS server used (for example if you are in an
+isolated environment, such as a test lab or a private network).
 
 
 ## Alternatives

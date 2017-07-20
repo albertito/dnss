@@ -12,6 +12,8 @@ import (
 	"sync"
 	"time"
 
+	"blitiri.com.ar/go/dnss/internal/dnsjson"
+
 	"github.com/golang/glog"
 	"github.com/miekg/dns"
 	"golang.org/x/net/trace"
@@ -99,25 +101,6 @@ func (r *httpsResolver) Init() error {
 func (r *httpsResolver) Maintain() {
 }
 
-// Structure for parsing JSON responses.
-type jsonResponse struct {
-	Status   int
-	TC       bool
-	RD       bool
-	RA       bool
-	AD       bool
-	CD       bool
-	Question []jsonRR
-	Answer   []jsonRR
-}
-
-type jsonRR struct {
-	Name string `json:name`
-	Type uint16 `json:type`
-	TTL  uint32 `json:TTL`
-	Data string `json:data`
-}
-
 func (r *httpsResolver) Query(req *dns.Msg, tr trace.Trace) (*dns.Msg, error) {
 	// Only answer single-question queries.
 	// In practice, these are all we get, and almost no server supports
@@ -160,7 +143,7 @@ func (r *httpsResolver) Query(req *dns.Msg, tr trace.Trace) (*dns.Msg, error) {
 		return nil, fmt.Errorf("Failed to read body: %v", err)
 	}
 
-	jr := &jsonResponse{}
+	jr := &dnsjson.Response{}
 	err = json.Unmarshal(body, jr)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to unmarshall: %v", err)

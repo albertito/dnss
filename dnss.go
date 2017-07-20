@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"blitiri.com.ar/go/dnss/internal/dnstohttps"
+	"blitiri.com.ar/go/dnss/internal/httpstodns"
 
 	"github.com/golang/glog"
 
@@ -37,6 +38,18 @@ var (
 	httpsClientCAFile = flag.String("https_client_cafile", "",
 		"CA file to use for the HTTPS client")
 
+	enableHTTPStoDNS = flag.Bool("enable_https_to_dns", false,
+		"enable HTTPS-to-DNS proxy")
+	dnsUpstream = flag.String("dns_upstream",
+		"8.8.8.8:53",
+		"Address of the upstream DNS server (for the HTTPS-to-DNS proxy)")
+	httpsCertFile = flag.String("https_cert", "",
+		"certificate to use for the HTTPS server")
+	httpsKeyFile = flag.String("https_key", "",
+		"key to use for the HTTPS server")
+	httpsAddr = flag.String("https_server_addr", ":443",
+		"address to listen on for HTTPS-to-DNS requests")
+
 	logFlushEvery = flag.Duration("log_flush_every", 30*time.Second,
 		"how often to flush logs")
 	monitoringListenAddr = flag.String("monitoring_listen_addr", "",
@@ -61,9 +74,10 @@ func main() {
 		launchMonitoringServer(*monitoringListenAddr)
 	}
 
-	if !*enableDNStoHTTPS {
+	if !(*enableDNStoHTTPS || *enableHTTPStoDNS) {
 		glog.Error("Need to set one of the following:")
 		glog.Error("  --enable_dns_to_https")
+		glog.Error("  --enable_https_to_dns")
 		glog.Fatal("")
 	}
 
@@ -81,6 +95,21 @@ func main() {
 		go func() {
 			defer wg.Done()
 			dth.ListenAndServe()
+		}()
+	}
+
+	// HTTPS to DNS.
+	if *enableHTTPStoDNS {
+		s := httpstodns.Server{
+			Addr:     *httpsAddr,
+			Upstream: *dnsUpstream,
+			CertFile: *httpsCertFile,
+			KeyFile:  *httpsKeyFile,
+		}
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			s.ListenAndServe()
 		}()
 	}
 
