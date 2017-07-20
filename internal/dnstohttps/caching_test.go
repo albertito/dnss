@@ -1,4 +1,4 @@
-package dnstox
+package dnstohttps
 
 // Tests for the caching resolver.
 // Note the other resolvers have more functional tests in the testing/

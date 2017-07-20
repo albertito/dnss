@@ -4,15 +4,7 @@ import:
   subpackages:
   - activation
 - package: github.com/golang/glog
-- package: github.com/golang/protobuf
-  subpackages:
-  - proto
 - package: github.com/miekg/dns
 - package: golang.org/x/net
   subpackages:
-  - context
   - trace
-- package: google.golang.org/grpc
-  subpackages:
-  - credentials
-  - grpclog/glogger

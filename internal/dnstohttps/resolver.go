@@ -1,4 +1,4 @@
-package dnstox
+package dnstohttps
 
 import (
 	"crypto/tls"
@@ -14,14 +14,9 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/miekg/dns"
-	"golang.org/x/net/context"
 	"golang.org/x/net/trace"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
 
 	"bytes"
-
-	pb "blitiri.com.ar/go/dnss/internal/proto"
 )
 
 // Interface for DNS resolvers that can answer queries.
@@ -35,69 +30,6 @@ type Resolver interface {
 
 	// Query responds to a DNS query.
 	Query(r *dns.Msg, tr trace.Trace) (*dns.Msg, error)
-}
-
-///////////////////////////////////////////////////////////////////////////
-// GRPC resolver.
-
-// grpcResolver implements the Resolver interface by querying a server via
-// GRPC.
-type grpcResolver struct {
-	Upstream string
-	CAFile   string
-	client   pb.DNSServiceClient
-}
-
-func NewGRPCResolver(upstream, caFile string) *grpcResolver {
-	return &grpcResolver{
-		Upstream: upstream,
-		CAFile:   caFile,
-	}
-}
-
-func (g *grpcResolver) Init() error {
-	var err error
-	var creds credentials.TransportCredentials
-	if g.CAFile == "" {
-		creds = credentials.NewClientTLSFromCert(nil, "")
-	} else {
-		creds, err = credentials.NewClientTLSFromFile(g.CAFile, "")
-		if err != nil {
-			return err
-		}
-	}
-
-	conn, err := grpc.Dial(g.Upstream, grpc.WithTransportCredentials(creds))
-	if err != nil {
-		return err
-	}
-
-	g.client = pb.NewDNSServiceClient(conn)
-	return nil
-}
-
-func (g *grpcResolver) Maintain() {
-}
-
-func (g *grpcResolver) Query(r *dns.Msg, tr trace.Trace) (*dns.Msg, error) {
-	buf, err := r.Pack()
-	if err != nil {
-		return nil, err
-	}
-
-	// Give our RPCs 2 second timeouts: DNS usually doesn't wait that long
-	// anyway.
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel()
-
-	reply, err := g.client.Query(ctx, &pb.RawMsg{Data: buf})
-	if err != nil {
-		return nil, err
-	}
-
-	m := &dns.Msg{}
-	err = m.Unpack(reply.Data)
-	return m, err
 }
 
 ///////////////////////////////////////////////////////////////////////////
@@ -358,8 +290,8 @@ func (c *cachingResolver) Init() error {
 // Note these are global by nature, if you try to register them multiple
 // times, you will get a panic.
 func (c *cachingResolver) RegisterDebugHandlers() {
-	http.HandleFunc("/debug/dnstox/cache/dump", c.DumpCache)
-	http.HandleFunc("/debug/dnstox/cache/flush", c.FlushCache)
+	http.HandleFunc("/debug/dnstohttps/cache/dump", c.DumpCache)
+	http.HandleFunc("/debug/dnstohttps/cache/flush", c.FlushCache)
 }
 
 func (c *cachingResolver) DumpCache(w http.ResponseWriter, r *http.Request) {
@@ -405,7 +337,7 @@ func (c *cachingResolver) Maintain() {
 	go c.back.Maintain()
 
 	for range time.Tick(maintenancePeriod) {
-		tr := trace.New("dnstox.Cache", "GC")
+		tr := trace.New("dnstohttps.Cache", "GC")
 		var total, expired int
 
 		c.mu.Lock()

@@ -1,6 +1,6 @@
-// DNS to GRPC.
-
-package dnstox
+// Package dnstohttps implements a DNS proxy that uses HTTPS to resolve the
+// requests.
+package dnstohttps
 
 import (
 	"crypto/rand"
@@ -69,7 +69,7 @@ func (s *Server) SetFallback(upstream string, domains []string) {
 }
 
 func (s *Server) Handler(w dns.ResponseWriter, r *dns.Msg) {
-	tr := trace.New("dnstox", "Handler")
+	tr := trace.New("dnstohttp", "Handler")
 	defer tr.Finish()
 
 	tr.LazyPrintf("from:%v   id:%v", w.RemoteAddr(), r.Id)

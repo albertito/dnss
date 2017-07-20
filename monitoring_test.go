@@ -8,18 +8,12 @@ package main
 import (
 	"net/http"
 	"testing"
-
-	"google.golang.org/grpc"
 )
 
 func TestMonitoringServer(t *testing.T) {
 	// TODO: Don't hard-code this.
 	const addr = "localhost:19395"
 	launchMonitoringServer(addr)
-
-	if !grpc.EnableTracing {
-		t.Errorf("grpc tracing is disabled")
-	}
 
 	checkGet(t, "http://"+addr+"/")
 	checkGet(t, "http://"+addr+"/debug/requests")

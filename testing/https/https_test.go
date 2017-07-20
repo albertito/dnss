@@ -9,7 +9,7 @@ import (
 	"os"
 	"testing"
 
-	"blitiri.com.ar/go/dnss/internal/dnstox"
+	"blitiri.com.ar/go/dnss/internal/dnstohttps"
 	"blitiri.com.ar/go/dnss/testing/util"
 
 	"github.com/golang/glog"
@@ -143,8 +143,8 @@ func realMain(m *testing.M) int {
 	httpsrv := httptest.NewServer(http.HandlerFunc(DNSHandler))
 
 	// DNS to HTTPS server.
-	r := dnstox.NewHTTPSResolver(httpsrv.URL, "")
-	dth := dnstox.New(DNSAddr, r, "")
+	r := dnstohttps.NewHTTPSResolver(httpsrv.URL, "")
+	dth := dnstohttps.New(DNSAddr, r, "")
 	go dth.ListenAndServe()
 
 	// Wait for the servers to start up.
