@@ -74,9 +74,7 @@ func (s *Server) Handler(w dns.ResponseWriter, r *dns.Msg) {
 
 	tr.LazyPrintf("from:%v   id:%v", w.RemoteAddr(), r.Id)
 
-	if glog.V(3) {
-		tr.LazyPrintf(util.QuestionsToString(r.Question))
-	}
+	util.TraceQuestion(tr, r.Question)
 
 	// We only support single-question queries.
 	if len(r.Question) != 1 {
@@ -95,9 +93,7 @@ func (s *Server) Handler(w dns.ResponseWriter, r *dns.Msg) {
 		u, err := dns.Exchange(r, s.unqUpstream)
 		if err == nil {
 			tr.LazyPrintf("used unqualified upstream")
-			if glog.V(3) {
-				util.TraceAnswer(tr, u)
-			}
+			util.TraceAnswer(tr, u)
 			w.WriteMsg(u)
 		} else {
 			tr.LazyPrintf("unqualified upstream error: %v", err)
@@ -112,9 +108,7 @@ func (s *Server) Handler(w dns.ResponseWriter, r *dns.Msg) {
 		u, err := dns.Exchange(r, s.fallbackUpstream)
 		if err == nil {
 			tr.LazyPrintf("used fallback upstream (%s)", s.fallbackUpstream)
-			if glog.V(3) {
-				util.TraceAnswer(tr, u)
-			}
+			util.TraceAnswer(tr, u)
 			w.WriteMsg(u)
 		} else {
 			tr.LazyPrintf("fallback upstream error: %v", err)
@@ -137,9 +131,7 @@ func (s *Server) Handler(w dns.ResponseWriter, r *dns.Msg) {
 		return
 	}
 
-	if glog.V(3) {
-		util.TraceAnswer(tr, from_up)
-	}
+	util.TraceAnswer(tr, from_up)
 
 	from_up.Id = oldid
 	w.WriteMsg(from_up)

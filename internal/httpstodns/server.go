@@ -47,6 +47,7 @@ func (s *Server) Resolve(w http.ResponseWriter, req *http.Request) {
 	// Construct the DNS request from the http query.
 	q, err := parseQuery(req.URL)
 	if err != nil {
+		util.TraceError(tr, err)
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -77,34 +78,23 @@ func (s *Server) Resolve(w http.ResponseWriter, req *http.Request) {
 		r.Extra = append(r.Extra, o)
 	}
 
-	if glog.V(3) {
-		tr.LazyPrintf(util.QuestionsToString(r.Question))
-	}
+	util.TraceQuestion(tr, r.Question)
 
 	// Do the DNS request, get the reply.
 	from_up, err := dns.Exchange(r, s.Upstream)
 	if err != nil {
-		msg := fmt.Sprintf("dns exchange error: %v", err)
-		glog.Info(msg)
-		tr.LazyPrintf(msg)
-		tr.SetError()
-
-		// TODO: reply via json anyway?
+		err = util.TraceErrorf(tr, "dns exchange error: %v", err)
 		http.Error(w, err.Error(), http.StatusFailedDependency)
 		return
 	}
 
 	if from_up == nil {
-		err = fmt.Errorf("no response from upstream")
-		tr.LazyPrintf(err.Error())
-		tr.SetError()
+		err = util.TraceErrorf(tr, "no response from upstream")
 		http.Error(w, err.Error(), http.StatusRequestTimeout)
 		return
 	}
 
-	if glog.V(3) {
-		util.TraceAnswer(tr, from_up)
-	}
+	util.TraceAnswer(tr, from_up)
 
 	// Convert the reply to json, and write it back.
 	jr := &dnsjson.Response{
@@ -139,9 +129,7 @@ func (s *Server) Resolve(w http.ResponseWriter, req *http.Request) {
 
 	buf, err := json.Marshal(jr)
 	if err != nil {
-		err = fmt.Errorf("failed to marshal: %v", err)
-		tr.LazyPrintf(err.Error())
-		tr.SetError()
+		err = util.TraceErrorf(tr, "failed to marshal: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
