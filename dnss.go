@@ -37,6 +37,7 @@ var (
 		"URL of upstream DNS-to-HTTP server")
 	httpsClientCAFile = flag.String("https_client_cafile", "",
 		"CA file to use for the HTTPS client")
+	enableCache = flag.Bool("enable_cache", true, "enable the local cache")
 
 	enableHTTPStoDNS = flag.Bool("enable_https_to_dns", false,
 		"enable HTTPS-to-DNS proxy")
@@ -85,10 +86,14 @@ func main() {
 
 	// DNS to HTTPS.
 	if *enableDNStoHTTPS {
-		r := dnstohttps.NewHTTPSResolver(*httpsUpstream, *httpsClientCAFile)
-		cr := dnstohttps.NewCachingResolver(r)
-		cr.RegisterDebugHandlers()
-		dth := dnstohttps.New(*dnsListenAddr, cr, *dnsUnqualifiedUpstream)
+		var resolver dnstohttps.Resolver = dnstohttps.NewHTTPSResolver(
+			*httpsUpstream, *httpsClientCAFile)
+		if *enableCache {
+			cr := dnstohttps.NewCachingResolver(resolver)
+			cr.RegisterDebugHandlers()
+			resolver = cr
+		}
+		dth := dnstohttps.New(*dnsListenAddr, resolver, *dnsUnqualifiedUpstream)
 
 		// If we're using an HTTP proxy, add the name to the fallback domain
 		// so we don't have problems resolving it.
