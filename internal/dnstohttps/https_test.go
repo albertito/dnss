@@ -1,5 +1,5 @@
-// Tests for dnss in HTTPS mode.
-package https
+// Tests for dnss-to-https mode.
+package dnstohttps
 
 import (
 	"flag"
@@ -9,8 +9,7 @@ import (
 	"os"
 	"testing"
 
-	"blitiri.com.ar/go/dnss/internal/dnstohttps"
-	"blitiri.com.ar/go/dnss/testing/util"
+	"blitiri.com.ar/go/dnss/internal/testutil"
 
 	"github.com/golang/glog"
 	"github.com/miekg/dns"
@@ -21,7 +20,7 @@ import (
 //
 
 func TestSimple(t *testing.T) {
-	_, ans, err := util.DNSQuery(DNSAddr, "test.blah.", dns.TypeA)
+	_, ans, err := testutil.DNSQuery(DNSAddr, "test.blah.", dns.TypeA)
 	if err != nil {
 		t.Errorf("dns query returned error: %v", err)
 	}
@@ -29,7 +28,7 @@ func TestSimple(t *testing.T) {
 		t.Errorf("unexpected result: %q", ans)
 	}
 
-	_, ans, err = util.DNSQuery(DNSAddr, "test.blah.", dns.TypeMX)
+	_, ans, err = testutil.DNSQuery(DNSAddr, "test.blah.", dns.TypeMX)
 	if err != nil {
 		t.Errorf("dns query returned error: %v", err)
 	}
@@ -37,7 +36,7 @@ func TestSimple(t *testing.T) {
 		t.Errorf("unexpected result: %q", ans.(*dns.MX).Mx)
 	}
 
-	in, _, err := util.DNSQuery(DNSAddr, "unknown.", dns.TypeA)
+	in, _, err := testutil.DNSQuery(DNSAddr, "unknown.", dns.TypeA)
 	if err != nil {
 		t.Errorf("dns query returned error: %v", err)
 	}
@@ -53,7 +52,7 @@ func TestSimple(t *testing.T) {
 func BenchmarkHTTPSimple(b *testing.B) {
 	var err error
 	for i := 0; i < b.N; i++ {
-		_, _, err = util.DNSQuery(DNSAddr, "test.blah.", dns.TypeA)
+		_, _, err = testutil.DNSQuery(DNSAddr, "test.blah.", dns.TypeA)
 		if err != nil {
 			b.Errorf("dns query returned error: %v", err)
 		}
@@ -124,18 +123,18 @@ func realMain(m *testing.M) int {
 	flag.Parse()
 	defer glog.Flush()
 
-	DNSAddr = util.GetFreePort()
+	DNSAddr = testutil.GetFreePort()
 
 	// Test http server.
 	httpsrv := httptest.NewServer(http.HandlerFunc(DNSHandler))
 
 	// DNS to HTTPS server.
-	r := dnstohttps.NewHTTPSResolver(httpsrv.URL, "")
-	dth := dnstohttps.New(DNSAddr, r, "")
+	r := NewHTTPSResolver(httpsrv.URL, "")
+	dth := New(DNSAddr, r, "")
 	go dth.ListenAndServe()
 
 	// Wait for the servers to start up.
-	err := util.WaitForDNSServer(DNSAddr)
+	err := testutil.WaitForDNSServer(DNSAddr)
 	if err != nil {
 		fmt.Printf("Error waiting for the test servers to start: %v\n", err)
 		fmt.Printf("Check the INFO logs for more details\n")

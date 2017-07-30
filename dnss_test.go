@@ -11,7 +11,7 @@ import (
 
 	"blitiri.com.ar/go/dnss/internal/dnstohttps"
 	"blitiri.com.ar/go/dnss/internal/httpstodns"
-	"blitiri.com.ar/go/dnss/testing/util"
+	"blitiri.com.ar/go/dnss/internal/testutil"
 	"github.com/golang/glog"
 	"github.com/miekg/dns"
 )
@@ -32,9 +32,9 @@ func realMain(m *testing.M) int {
 	flag.Parse()
 	defer glog.Flush()
 
-	DNSToHTTPSAddr := util.GetFreePort()
-	HTTPSToDNSAddr := util.GetFreePort()
-	DNSServerAddr := util.GetFreePort()
+	DNSToHTTPSAddr := testutil.GetFreePort()
+	HTTPSToDNSAddr := testutil.GetFreePort()
+	DNSServerAddr := testutil.GetFreePort()
 
 	// We want tests talking to the DNS-to-HTTPS server, the first in the
 	// chain.
@@ -57,9 +57,9 @@ func realMain(m *testing.M) int {
 	go ServeFakeDNSServer(DNSServerAddr)
 
 	// Wait for the servers to start up.
-	err1 := util.WaitForDNSServer(DNSToHTTPSAddr)
-	err2 := util.WaitForHTTPServer(HTTPSToDNSAddr)
-	err3 := util.WaitForDNSServer(DNSServerAddr)
+	err1 := testutil.WaitForDNSServer(DNSToHTTPSAddr)
+	err2 := testutil.WaitForHTTPServer(HTTPSToDNSAddr)
+	err3 := testutil.WaitForDNSServer(DNSServerAddr)
 	if err1 != nil || err2 != nil || err3 != nil {
 		fmt.Printf("Error waiting for the test servers to start:\n")
 		fmt.Printf("  DNS to HTTPS: %v\n", err1)
@@ -149,7 +149,7 @@ func handleFakeDNS(w dns.ResponseWriter, r *dns.Msg) {
 func TestSimple(t *testing.T) {
 	resetAnswers()
 	addAnswers(t, "test.blah. A 1.2.3.4")
-	_, ans, err := util.DNSQuery(ServerAddr, "test.blah.", dns.TypeA)
+	_, ans, err := testutil.DNSQuery(ServerAddr, "test.blah.", dns.TypeA)
 	if err != nil {
 		t.Errorf("dns query returned error: %v", err)
 	}
@@ -158,7 +158,7 @@ func TestSimple(t *testing.T) {
 	}
 
 	addAnswers(t, "test.blah. MX 10 mail.test.blah.")
-	_, ans, err = util.DNSQuery(ServerAddr, "test.blah.", dns.TypeMX)
+	_, ans, err = testutil.DNSQuery(ServerAddr, "test.blah.", dns.TypeMX)
 	if err != nil {
 		t.Errorf("dns query returned error: %v", err)
 	}
@@ -166,7 +166,7 @@ func TestSimple(t *testing.T) {
 		t.Errorf("unexpected result: %q", ans.(*dns.MX).Mx)
 	}
 
-	in, _, err := util.DNSQuery(ServerAddr, "unknown.", dns.TypeA)
+	in, _, err := testutil.DNSQuery(ServerAddr, "unknown.", dns.TypeA)
 	if err != nil {
 		t.Errorf("dns query returned error: %v", err)
 	}
@@ -186,7 +186,7 @@ func BenchmarkSimple(b *testing.B) {
 
 	var err error
 	for i := 0; i < b.N; i++ {
-		_, _, err = util.DNSQuery(ServerAddr, "test.blah.", dns.TypeA)
+		_, _, err = testutil.DNSQuery(ServerAddr, "test.blah.", dns.TypeA)
 		if err != nil {
 			b.Errorf("dns query returned error: %v", err)
 		}

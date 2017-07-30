@@ -1,5 +1,5 @@
-// Package util implements common testing utilities.
-package util
+// Package testutil implements common testing utilities.
+package testutil
 
 import (
 	"fmt"
