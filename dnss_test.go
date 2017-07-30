@@ -1,4 +1,4 @@
-// End to end tests.
+// Tests for dnss (end to end tests, and main-specific helpers).
 package main
 
 import (
@@ -15,6 +15,9 @@ import (
 	"github.com/golang/glog"
 	"github.com/miekg/dns"
 )
+
+/////////////////////////////////////////////////////////////////////
+// End to end tests
 
 // Setup:
 // DNS client -> DNS-to-HTTPS -> HTTPS-to-DNS -> DNS server
@@ -146,7 +149,7 @@ func handleFakeDNS(w dns.ResponseWriter, r *dns.Msg) {
 // Tests
 //
 
-func TestSimple(t *testing.T) {
+func TestEndToEnd(t *testing.T) {
 	resetAnswers()
 	addAnswers(t, "test.blah. A 1.2.3.4")
 	_, ans, err := testutil.DNSQuery(ServerAddr, "test.blah.", dns.TypeA)
@@ -190,5 +193,50 @@ func BenchmarkSimple(b *testing.B) {
 		if err != nil {
 			b.Errorf("dns query returned error: %v", err)
 		}
+	}
+}
+
+/////////////////////////////////////////////////////////////////////
+// Tests for main-specific helpers
+
+// Test proxyServerDomain(). Unfortunately, this function can only be called
+// once, as the results of http.ProxyFromEnvironment are cached, so we test it
+// for a single case.
+func TestProxyServerDomain(t *testing.T) {
+	*httpsUpstream = "https://montoto/xyz"
+	os.Setenv("HTTPS_PROXY", "http://proxy:1234/p")
+	if got := proxyServerDomain(); got != "proxy" {
+		t.Errorf("got %q, expected 'proxy'", got)
+	}
+}
+
+func TestExtractHostname(t *testing.T) {
+	cases := []struct{ host, expected string }{
+		{"host", "host"},
+		{"host:1234", "host"},
+		{"[host]", "host"},
+		{"[host]:1234", "host"},
+		{"1.2.3.4", "1.2.3.4"},
+		{"1.2.3.4:1234", "1.2.3.4"},
+		{"[::192.9.5.5]", "::192.9.5.5"},
+		{"[::192.9.5.5]:1234", "::192.9.5.5"},
+		{"[3ffe:2a00:100:7031::1]", "3ffe:2a00:100:7031::1"},
+		{"[3ffe:2a00:100:7031::1]:1234", "3ffe:2a00:100:7031::1"},
+	}
+	for _, c := range cases {
+		if got := extractHostname(c.host); got != c.expected {
+			t.Errorf("extractHostname(%q) = %q ; expected %q",
+				c.host, got, c.expected)
+		}
+	}
+}
+
+func TestDumpFlags(t *testing.T) {
+	flag.Parse()
+	flag.Set("https_upstream", "https://montoto/xyz")
+
+	f := dumpFlags()
+	if !strings.Contains(f, "-https_upstream=https://montoto/xyz\n") {
+		t.Errorf("Flags string missing canary value: %v", f)
 	}
 }

@@ -89,8 +89,16 @@ func main() {
 		cr := dnstohttps.NewCachingResolver(r)
 		cr.RegisterDebugHandlers()
 		dth := dnstohttps.New(*dnsListenAddr, cr, *dnsUnqualifiedUpstream)
-		dth.SetFallback(
-			*fallbackUpstream, strings.Split(*fallbackDomains, " "))
+
+		// If we're using an HTTP proxy, add the name to the fallback domain
+		// so we don't have problems resolving it.
+		fallbackDoms := strings.Split(*fallbackDomains, " ")
+		if proxyDomain := proxyServerDomain(); proxyDomain != "" {
+			glog.Infof("Adding proxy %q to fallback domains", proxyDomain)
+			fallbackDoms = append(fallbackDoms, proxyDomain)
+		}
+
+		dth.SetFallback(*fallbackUpstream, fallbackDoms)
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
@@ -114,6 +122,44 @@ func main() {
 	}
 
 	wg.Wait()
+}
+
+// proxyServerDomain checks if we're using an HTTP proxy server, and if so
+// returns its domain.
+func proxyServerDomain() string {
+	req, err := http.NewRequest("GET", *httpsUpstream, nil)
+	if err != nil {
+		return ""
+	}
+
+	url, err := http.ProxyFromEnvironment(req)
+	if err != nil || url == nil {
+		return ""
+	}
+
+	return extractHostname(url.Host)
+}
+
+// extractHostname from an URL host, which can be in the form "host" or
+// "host:port".
+// TODO: Use url.Hostname() instead of this, once we drop support for Go 1.7
+// (the function was added in 1.8).
+func extractHostname(host string) string {
+	// IPv6 URLs have the address between brackets.
+	// http://www.ietf.org/rfc/rfc2732.txt
+	if i := strings.Index(host, "]"); i != -1 {
+		return strings.TrimPrefix(host[:i], "[")
+	}
+
+	// IPv4 or host URL, we can just drop everything after the ":" (if
+	// present).
+	if i := strings.Index(host, ":"); i != -1 {
+		return host[:i]
+	}
+
+	// Port is not specified.
+	return host
+
 }
 
 func launchMonitoringServer(addr string) {
