@@ -4,6 +4,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"net/http"
 	"os"
 	"strings"
 	"sync"
@@ -239,4 +240,35 @@ func TestDumpFlags(t *testing.T) {
 	if !strings.Contains(f, "-https_upstream=https://montoto/xyz\n") {
 		t.Errorf("Flags string missing canary value: %v", f)
 	}
+}
+
+func TestMonitoringServer(t *testing.T) {
+	addr := testutil.GetFreePort()
+	launchMonitoringServer(addr)
+	testutil.WaitForHTTPServer(addr)
+
+	checkGet(t, "http://"+addr+"/")
+	checkGet(t, "http://"+addr+"/debug/requests")
+	checkGet(t, "http://"+addr+"/debug/pprof/goroutine")
+	checkGet(t, "http://"+addr+"/debug/flags")
+	checkGet(t, "http://"+addr+"/debug/vars")
+
+	// Check that we emit 404 for non-existing paths.
+	r, _ := http.Get("http://" + addr + "/doesnotexist")
+	if r.StatusCode != 404 {
+		t.Errorf("expected 404, got %s", r.Status)
+	}
+}
+
+func checkGet(t *testing.T, url string) {
+	r, err := http.Get(url)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	if r.StatusCode != 200 {
+		t.Errorf("%q - invalid status: %s", url, r.Status)
+	}
+
 }
