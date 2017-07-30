@@ -153,6 +153,19 @@ type query struct {
 	clientSubnet *net.IPNet
 }
 
+func (q query) String() string {
+	return fmt.Sprintf("{%s %d %v %s}", q.name, q.rrType, q.cd, q.clientSubnet)
+}
+
+var (
+	emptyNameErr     = fmt.Errorf("empty name")
+	nameTooLongErr   = fmt.Errorf("name too long")
+	invalidSubnetErr = fmt.Errorf("invalid edns_client_subnet")
+	intOutOfRangeErr = fmt.Errorf("invalid type (int out of range)")
+	unknownType      = fmt.Errorf("invalid type (unknown string type)")
+	invalidCD        = fmt.Errorf("invalid cd value")
+)
+
 func parseQuery(u *url.URL) (query, error) {
 	q := query{
 		name:         "",
@@ -174,10 +187,10 @@ func parseQuery(u *url.URL) (query, error) {
 	var err error
 
 	if q.name, ok = vs["name"]; !ok || q.name == "" {
-		return q, fmt.Errorf("empty name")
+		return q, emptyNameErr
 	}
 	if len(q.name) > 253 {
-		return q, fmt.Errorf("name too long")
+		return q, nameTooLongErr
 	}
 
 	if _, ok = vs["type"]; ok {
@@ -197,7 +210,7 @@ func parseQuery(u *url.URL) (query, error) {
 	if clientSubnet, ok := vs["edns_client_subnet"]; ok {
 		_, q.clientSubnet, err = net.ParseCIDR(clientSubnet)
 		if err != nil {
-			return q, fmt.Errorf("invalid edns_client_subnet: %v", err)
+			return q, invalidSubnetErr
 		}
 	}
 
@@ -213,12 +226,12 @@ func stringToRRType(s string) (uint16, error) {
 		if 1 <= i && i <= 65535 {
 			return uint16(i), nil
 		}
-		return 0, fmt.Errorf("invalid type (int out of range)")
+		return 0, intOutOfRangeErr
 	}
 
 	rrType, ok := dns.StringToType[strings.ToUpper(s)]
 	if !ok {
-		return 0, fmt.Errorf("invalid type (unknown string type)")
+		return 0, unknownType
 	}
 	return rrType, nil
 }
@@ -233,5 +246,5 @@ func stringToBool(s string) (bool, error) {
 		return false, nil
 	}
 
-	return false, fmt.Errorf("invalid cd value")
+	return false, invalidCD
 }
