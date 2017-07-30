@@ -180,9 +180,11 @@ func parseQuery(u *url.URL) (query, error) {
 		return q, fmt.Errorf("name too long")
 	}
 
-	q.rrType, err = stringToRRType(vs["type"])
-	if err != nil {
-		return q, err
+	if _, ok = vs["type"]; ok {
+		q.rrType, err = stringToRRType(vs["type"])
+		if err != nil {
+			return q, err
+		}
 	}
 
 	if cd, ok := vs["cd"]; ok {
