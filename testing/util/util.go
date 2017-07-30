@@ -4,6 +4,7 @@ package util
 import (
 	"fmt"
 	"net"
+	"net/http"
 	"testing"
 	"time"
 
@@ -39,12 +40,49 @@ func WaitForDNSServer(addr string) error {
 	return fmt.Errorf("timed out")
 }
 
+// WaitForHTTPServer waits 5 seconds for an HTTP server to start, and returns
+// an error if it fails to do so.
+// It does this by repeatedly querying the server until it either replies or
+// times out.
+func WaitForHTTPServer(addr string) error {
+	c := http.Client{
+		Timeout: 100 * time.Millisecond,
+	}
+
+	deadline := time.Now().Add(5 * time.Second)
+	tick := time.Tick(100 * time.Millisecond)
+
+	for (<-tick).Before(deadline) {
+		_, err := c.Get("http://" + addr + "/testpoke")
+		if err == nil {
+			return nil
+		}
+	}
+
+	return fmt.Errorf("timed out")
+}
+
 // Get a free (TCP) port. This is hacky and not race-free, but it works well
 // enough for testing purposes.
 func GetFreePort() string {
 	l, _ := net.Listen("tcp", "localhost:0")
 	defer l.Close()
 	return l.Addr().String()
+}
+
+// DNSQuery is a convenient wrapper to issue simple DNS queries.
+func DNSQuery(srv, addr string, qtype uint16) (*dns.Msg, dns.RR, error) {
+	m := new(dns.Msg)
+	m.SetQuestion(addr, qtype)
+	in, err := dns.Exchange(m, srv)
+
+	if err != nil {
+		return nil, nil, err
+	} else if len(in.Answer) > 0 {
+		return in, in.Answer[0], nil
+	} else {
+		return in, nil, nil
+	}
 }
 
 // TestTrace implements the tracer.Trace interface, but prints using the test

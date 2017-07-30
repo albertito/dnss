@@ -25,6 +25,8 @@ type Server struct {
 	KeyFile  string
 }
 
+var InsecureForTesting = false
+
 func (s *Server) ListenAndServe() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/resolve", s.Resolve)
@@ -34,7 +36,12 @@ func (s *Server) ListenAndServe() {
 	}
 
 	glog.Infof("HTTPS listening on %s", s.Addr)
-	err := srv.ListenAndServeTLS(s.CertFile, s.KeyFile)
+	var err error
+	if InsecureForTesting {
+		err = srv.ListenAndServe()
+	} else {
+		err = srv.ListenAndServeTLS(s.CertFile, s.KeyFile)
+	}
 	glog.Fatalf("HTTPS exiting: %s", err)
 }
 
