@@ -152,7 +152,7 @@ func handleFakeDNS(w dns.ResponseWriter, r *dns.Msg) {
 
 func TestEndToEnd(t *testing.T) {
 	resetAnswers()
-	addAnswers(t, "test.blah. A 1.2.3.4")
+	addAnswers(t, "test.blah. 3600 A 1.2.3.4")
 	_, ans, err := testutil.DNSQuery(ServerAddr, "test.blah.", dns.TypeA)
 	if err != nil {
 		t.Errorf("dns query returned error: %v", err)
@@ -161,7 +161,7 @@ func TestEndToEnd(t *testing.T) {
 		t.Errorf("unexpected result: %q", ans)
 	}
 
-	addAnswers(t, "test.blah. MX 10 mail.test.blah.")
+	addAnswers(t, "test.blah. 3600 MX 10 mail.test.blah.")
 	_, ans, err = testutil.DNSQuery(ServerAddr, "test.blah.", dns.TypeMX)
 	if err != nil {
 		t.Errorf("dns query returned error: %v", err)
@@ -185,7 +185,7 @@ func TestEndToEnd(t *testing.T) {
 
 func BenchmarkSimple(b *testing.B) {
 	resetAnswers()
-	addAnswers(b, "test.blah. A 1.2.3.4")
+	addAnswers(b, "test.blah. 3600 A 1.2.3.4")
 	b.ResetTimer()
 
 	var err error
