@@ -96,7 +96,7 @@ func NewTestTrace(t *testing.T) *TestTrace {
 }
 
 func (t *TestTrace) LazyLog(x fmt.Stringer, sensitive bool) {
-	t.T.Logf("trace %p (%b): %s", t, sensitive, x)
+	t.T.Logf("trace %p (%t): %s", t, sensitive, x)
 }
 
 func (t *TestTrace) LazyPrintf(format string, a ...interface{}) {
