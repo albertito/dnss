@@ -1,3 +1,14 @@
+// dnss is a tool for encapsulating DNS over HTTPS.
+//
+// It can act as a DNS-to-HTTPS proxy, using dns.google.com as a server, or
+// anything implementing the same API.
+//
+// It can also act as an HTTPS-to-DNS proxy, so you can use it instead of
+// dns.google.com if you want more control over the servers and the final DNS
+// server used (for example if you are in an isolated environment, such as a
+// test lab or a private network).
+//
+// See the README.md file for more details.
 package main
 
 import (
