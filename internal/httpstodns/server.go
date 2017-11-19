@@ -18,6 +18,8 @@ import (
 	"golang.org/x/net/trace"
 )
 
+// Server is an HTTPS server that implements DNS over HTTPS, as specified in
+// https://developers.google.com/speed/public-dns/docs/dns-over-https#api_specification.
 type Server struct {
 	Addr     string
 	Upstream string
@@ -25,8 +27,11 @@ type Server struct {
 	KeyFile  string
 }
 
+// InsecureForTesting = true will make Server.ListenAndServe will not use TLS.
+// This is only useful for integration testing purposes.
 var InsecureForTesting = false
 
+// ListenAndServe starts the HTTPS server.
 func (s *Server) ListenAndServe() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/resolve", s.Resolve)
@@ -45,6 +50,10 @@ func (s *Server) ListenAndServe() {
 	glog.Fatalf("HTTPS exiting: %s", err)
 }
 
+// Resolve "DNS over HTTPS" requests, and returns responses as specified in
+// https://developers.google.com/speed/public-dns/docs/dns-over-https#api_specification.
+// It implements an http.HandlerFunc so it can be used with any standard Go
+// HTTP server.
 func (s *Server) Resolve(w http.ResponseWriter, req *http.Request) {
 	tr := trace.New("httpstodns", "/resolve")
 	defer tr.Finish()
@@ -88,32 +97,32 @@ func (s *Server) Resolve(w http.ResponseWriter, req *http.Request) {
 	util.TraceQuestion(tr, r.Question)
 
 	// Do the DNS request, get the reply.
-	from_up, err := dns.Exchange(r, s.Upstream)
+	fromUp, err := dns.Exchange(r, s.Upstream)
 	if err != nil {
 		err = util.TraceErrorf(tr, "dns exchange error: %v", err)
 		http.Error(w, err.Error(), http.StatusFailedDependency)
 		return
 	}
 
-	if from_up == nil {
+	if fromUp == nil {
 		err = util.TraceErrorf(tr, "no response from upstream")
 		http.Error(w, err.Error(), http.StatusRequestTimeout)
 		return
 	}
 
-	util.TraceAnswer(tr, from_up)
+	util.TraceAnswer(tr, fromUp)
 
 	// Convert the reply to json, and write it back.
 	jr := &dnsjson.Response{
-		Status: from_up.Rcode,
-		TC:     from_up.Truncated,
-		RD:     from_up.RecursionDesired,
-		RA:     from_up.RecursionAvailable,
-		AD:     from_up.AuthenticatedData,
-		CD:     from_up.CheckingDisabled,
+		Status: fromUp.Rcode,
+		TC:     fromUp.Truncated,
+		RD:     fromUp.RecursionDesired,
+		RA:     fromUp.RecursionAvailable,
+		AD:     fromUp.AuthenticatedData,
+		CD:     fromUp.CheckingDisabled,
 	}
 
-	for _, q := range from_up.Question {
+	for _, q := range fromUp.Question {
 		rr := dnsjson.RR{
 			Name: q.Name,
 			Type: q.Qtype,
@@ -121,7 +130,7 @@ func (s *Server) Resolve(w http.ResponseWriter, req *http.Request) {
 		jr.Question = append(jr.Question, rr)
 	}
 
-	for _, a := range from_up.Answer {
+	for _, a := range fromUp.Answer {
 		hdr := a.Header()
 		ja := dnsjson.RR{
 			Name: hdr.Name,
@@ -158,12 +167,12 @@ func (q query) String() string {
 }
 
 var (
-	emptyNameErr     = fmt.Errorf("empty name")
-	nameTooLongErr   = fmt.Errorf("name too long")
-	invalidSubnetErr = fmt.Errorf("invalid edns_client_subnet")
-	intOutOfRangeErr = fmt.Errorf("invalid type (int out of range)")
-	unknownType      = fmt.Errorf("invalid type (unknown string type)")
-	invalidCD        = fmt.Errorf("invalid cd value")
+	errEmptyName     = fmt.Errorf("empty name")
+	errNameTooLong   = fmt.Errorf("name too long")
+	errInvalidSubnet = fmt.Errorf("invalid edns_client_subnet")
+	errIntOutOfRange = fmt.Errorf("invalid type (int out of range)")
+	errUnknownType   = fmt.Errorf("invalid type (unknown string type)")
+	errInvalidCD     = fmt.Errorf("invalid cd value")
 )
 
 func parseQuery(u *url.URL) (query, error) {
@@ -187,10 +196,10 @@ func parseQuery(u *url.URL) (query, error) {
 	var err error
 
 	if q.name, ok = vs["name"]; !ok || q.name == "" {
-		return q, emptyNameErr
+		return q, errEmptyName
 	}
 	if len(q.name) > 253 {
-		return q, nameTooLongErr
+		return q, errNameTooLong
 	}
 
 	if _, ok = vs["type"]; ok {
@@ -210,7 +219,7 @@ func parseQuery(u *url.URL) (query, error) {
 	if clientSubnet, ok := vs["edns_client_subnet"]; ok {
 		_, q.clientSubnet, err = net.ParseCIDR(clientSubnet)
 		if err != nil {
-			return q, invalidSubnetErr
+			return q, errInvalidSubnet
 		}
 	}
 
@@ -226,12 +235,12 @@ func stringToRRType(s string) (uint16, error) {
 		if 1 <= i && i <= 65535 {
 			return uint16(i), nil
 		}
-		return 0, intOutOfRangeErr
+		return 0, errIntOutOfRange
 	}
 
 	rrType, ok := dns.StringToType[strings.ToUpper(s)]
 	if !ok {
-		return 0, unknownType
+		return 0, errUnknownType
 	}
 	return rrType, nil
 }
@@ -246,5 +255,5 @@ func stringToBool(s string) (bool, error) {
 		return false, nil
 	}
 
-	return false, invalidCD
+	return false, errInvalidCD
 }

@@ -21,11 +21,11 @@ import (
 // newID is a channel used to generate new request IDs.
 // There is a goroutine created at init() time that will get IDs randomly, to
 // help prevent guesses.
-var newId chan uint16
+var newID chan uint16
 
 func init() {
 	// Buffer 100 numbers to avoid blocking on crypto rand.
-	newId = make(chan uint16, 100)
+	newID = make(chan uint16, 100)
 
 	go func() {
 		var id uint16
@@ -37,12 +37,14 @@ func init() {
 				panic(fmt.Sprintf("error creating id: %v", err))
 			}
 
-			newId <- id
+			newID <- id
 		}
 
 	}()
 }
 
+// Server implements a DNS proxy, which will (mostly) use the given resolver
+// to resolve queries.
 type Server struct {
 	Addr        string
 	unqUpstream string
@@ -52,6 +54,8 @@ type Server struct {
 	fallbackUpstream string
 }
 
+// New *Server, which will listen on addr, use resolver as the backend
+// resolver, and use unqUpstream to resolve unqualified queries.
 func New(addr string, resolver Resolver, unqUpstream string) *Server {
 	return &Server{
 		Addr:            addr,
@@ -61,6 +65,7 @@ func New(addr string, resolver Resolver, unqUpstream string) *Server {
 	}
 }
 
+// SetFallback upstream server for the given domains.
 func (s *Server) SetFallback(upstream string, domains []string) {
 	s.fallbackUpstream = upstream
 	for _, d := range domains {
@@ -68,6 +73,7 @@ func (s *Server) SetFallback(upstream string, domains []string) {
 	}
 }
 
+// Handler for the incoming DNS queries.
 func (s *Server) Handler(w dns.ResponseWriter, r *dns.Msg) {
 	tr := trace.New("dnstohttp", "Handler")
 	defer tr.Finish()
@@ -121,9 +127,9 @@ func (s *Server) Handler(w dns.ResponseWriter, r *dns.Msg) {
 	// Create our own IDs, in case different users pick the same id and we
 	// pass that upstream.
 	oldid := r.Id
-	r.Id = <-newId
+	r.Id = <-newID
 
-	from_up, err := s.resolver.Query(r, tr)
+	fromUp, err := s.resolver.Query(r, tr)
 	if err != nil {
 		glog.Infof(err.Error())
 		tr.LazyPrintf(err.Error())
@@ -131,12 +137,13 @@ func (s *Server) Handler(w dns.ResponseWriter, r *dns.Msg) {
 		return
 	}
 
-	util.TraceAnswer(tr, from_up)
+	util.TraceAnswer(tr, fromUp)
 
-	from_up.Id = oldid
-	w.WriteMsg(from_up)
+	fromUp.Id = oldid
+	w.WriteMsg(fromUp)
 }
 
+// ListenAndServe launches the DNS proxy.
 func (s *Server) ListenAndServe() {
 	err := s.resolver.Init()
 	if err != nil {

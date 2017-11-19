@@ -21,7 +21,7 @@ import (
 	"bytes"
 )
 
-// Interface for DNS resolvers that can answer queries.
+// Resolver is the interface for DNS resolvers that can answer queries.
 type Resolver interface {
 	// Initialize the resolver.
 	Init() error
@@ -59,6 +59,8 @@ func loadCertPool(caFile string) (*x509.CertPool, error) {
 	return pool, nil
 }
 
+// NewHTTPSResolver creates a new resolver which uses the given upstream URL
+// to resolve queries.
 func NewHTTPSResolver(upstream, caFile string) *httpsResolver {
 	return &httpsResolver{
 		Upstream: upstream,
@@ -168,7 +170,7 @@ func (r *httpsResolver) Query(req *dns.Msg, tr trace.Trace) (*dns.Msg, error) {
 			CheckingDisabled:   jr.CD,
 		},
 		Question: []dns.Question{
-			dns.Question{
+			{
 				Name:   jr.Question[0].Name,
 				Qtype:  jr.Question[0].Type,
 				Qclass: dns.ClassINET,
@@ -208,6 +210,8 @@ type cachingResolver struct {
 	mu *sync.RWMutex
 }
 
+// NewCachingResolver returns a new resolver which implements a cache on top
+// of the given one.
 func NewCachingResolver(back Resolver) *cachingResolver {
 	return &cachingResolver{
 		back:   back,

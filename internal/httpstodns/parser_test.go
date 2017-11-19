@@ -79,15 +79,15 @@ func Test(t *testing.T) {
 		raw string
 		err error
 	}{
-		{"", emptyNameErr},
-		{"name=" + longName, nameTooLongErr},
-		{"name=x;type=0", intOutOfRangeErr},
-		{"name=x;type=-1", intOutOfRangeErr},
-		{"name=x;type=65536", unknownType},
-		{"name=x;type=merienda", unknownType},
-		{"name=x;cd=lala", invalidCD},
-		{"name=x;edns_client_subnet=lala", invalidSubnetErr},
-		{"name=x;edns_client_subnet=1.2.3.4", invalidSubnetErr},
+		{"", errEmptyName},
+		{"name=" + longName, errNameTooLong},
+		{"name=x;type=0", errIntOutOfRange},
+		{"name=x;type=-1", errIntOutOfRange},
+		{"name=x;type=65536", errUnknownType},
+		{"name=x;type=merienda", errUnknownType},
+		{"name=x;cd=lala", errInvalidCD},
+		{"name=x;edns_client_subnet=lala", errInvalidSubnet},
+		{"name=x;edns_client_subnet=1.2.3.4", errInvalidSubnet},
 	}
 	for _, c := range errCases {
 		_, err := parseQuery(makeURL(t, c.raw))

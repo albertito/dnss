@@ -9,6 +9,7 @@ import (
 	"golang.org/x/net/trace"
 )
 
+// TraceQuestion adds the given question to the trace.
 func TraceQuestion(tr trace.Trace, qs []dns.Question) {
 	if !glog.V(3) {
 		return
@@ -26,6 +27,7 @@ func questionsToString(qs []dns.Question) string {
 	return "Q: " + strings.Join(s, " ; ")
 }
 
+// TraceAnswer adds the given DNS answer to the trace.
 func TraceAnswer(tr trace.Trace, m *dns.Msg) {
 	if !glog.V(3) {
 		return
@@ -37,12 +39,14 @@ func TraceAnswer(tr trace.Trace, m *dns.Msg) {
 	}
 }
 
+// TraceError adds the given error to the trace.
 func TraceError(tr trace.Trace, err error) {
 	glog.Info(err.Error())
 	tr.LazyPrintf(err.Error())
 	tr.SetError()
 }
 
+// TraceErrorf adds an error message to the trace.
 func TraceErrorf(tr trace.Trace, format string, a ...interface{}) error {
 	err := fmt.Errorf(format, a...)
 	TraceError(tr, err)
