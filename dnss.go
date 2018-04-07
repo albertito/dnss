@@ -66,6 +66,9 @@ var (
 		"how often to flush logs")
 	monitoringListenAddr = flag.String("monitoring_listen_addr", "",
 		"address to listen on for monitoring HTTP requests")
+
+	insecureForTesting = flag.Bool("testing__insecure_http", false,
+		"INSECURE, for testing only")
 )
 
 func flushLogs() {
@@ -91,6 +94,10 @@ func main() {
 		glog.Error("  --enable_dns_to_https")
 		glog.Error("  --enable_https_to_dns")
 		glog.Fatal("")
+	}
+
+	if *insecureForTesting {
+		httpstodns.InsecureForTesting = true
 	}
 
 	var wg sync.WaitGroup
