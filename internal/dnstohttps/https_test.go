@@ -9,6 +9,7 @@ import (
 	"os"
 	"testing"
 
+	"blitiri.com.ar/go/dnss/internal/dnsserver"
 	"blitiri.com.ar/go/dnss/internal/testutil"
 
 	"github.com/golang/glog"
@@ -130,7 +131,7 @@ func realMain(m *testing.M) int {
 
 	// DNS to HTTPS server.
 	r := NewHTTPSResolver(httpsrv.URL, "")
-	dth := New(DNSAddr, r, "")
+	dth := dnsserver.New(DNSAddr, r, "")
 	go dth.ListenAndServe()
 
 	// Wait for the servers to start up.

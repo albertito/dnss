@@ -1,6 +1,6 @@
-// Package dnstohttps implements a DNS proxy that uses HTTPS to resolve the
-// requests.
-package dnstohttps
+// Package dnsserver implements a DNS server, that uses the given resolvers to
+// handle requests.
+package dnsserver
 
 import (
 	"crypto/rand"

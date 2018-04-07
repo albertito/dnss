@@ -19,6 +19,7 @@ import (
 	"sync"
 	"time"
 
+	"blitiri.com.ar/go/dnss/internal/dnsserver"
 	"blitiri.com.ar/go/dnss/internal/dnstohttps"
 	"blitiri.com.ar/go/dnss/internal/httpstodns"
 
@@ -104,14 +105,14 @@ func main() {
 
 	// DNS to HTTPS.
 	if *enableDNStoHTTPS {
-		var resolver dnstohttps.Resolver = dnstohttps.NewHTTPSResolver(
+		var resolver dnsserver.Resolver = dnstohttps.NewHTTPSResolver(
 			*httpsUpstream, *httpsClientCAFile)
 		if *enableCache {
-			cr := dnstohttps.NewCachingResolver(resolver)
+			cr := dnsserver.NewCachingResolver(resolver)
 			cr.RegisterDebugHandlers()
 			resolver = cr
 		}
-		dth := dnstohttps.New(*dnsListenAddr, resolver, *dnsUnqualifiedUpstream)
+		dth := dnsserver.New(*dnsListenAddr, resolver, *dnsUnqualifiedUpstream)
 
 		// If we're using an HTTP proxy, add the name to the fallback domain
 		// so we don't have problems resolving it.

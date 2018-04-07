@@ -10,6 +10,7 @@ import (
 	"sync"
 	"testing"
 
+	"blitiri.com.ar/go/dnss/internal/dnsserver"
 	"blitiri.com.ar/go/dnss/internal/dnstohttps"
 	"blitiri.com.ar/go/dnss/internal/httpstodns"
 	"blitiri.com.ar/go/dnss/internal/testutil"
@@ -46,7 +47,7 @@ func realMain(m *testing.M) int {
 
 	// DNS to HTTPS server.
 	r := dnstohttps.NewHTTPSResolver("http://"+HTTPSToDNSAddr+"/resolve", "")
-	dtoh := dnstohttps.New(DNSToHTTPSAddr, r, "")
+	dtoh := dnsserver.New(DNSToHTTPSAddr, r, "")
 	go dtoh.ListenAndServe()
 
 	// HTTPS to DNS server.
