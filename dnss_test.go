@@ -12,7 +12,7 @@ import (
 
 	"blitiri.com.ar/go/dnss/internal/dnsserver"
 	"blitiri.com.ar/go/dnss/internal/dnstohttps"
-	"blitiri.com.ar/go/dnss/internal/httpstodns"
+	"blitiri.com.ar/go/dnss/internal/httpserver"
 	"blitiri.com.ar/go/dnss/internal/testutil"
 	"github.com/golang/glog"
 	"github.com/miekg/dns"
@@ -51,11 +51,11 @@ func realMain(m *testing.M) int {
 	go dtoh.ListenAndServe()
 
 	// HTTPS to DNS server.
-	htod := httpstodns.Server{
+	htod := httpserver.Server{
 		Addr:     HTTPSToDNSAddr,
 		Upstream: DNSServerAddr,
 	}
-	httpstodns.InsecureForTesting = true
+	httpserver.InsecureForTesting = true
 	go htod.ListenAndServe()
 
 	// Fake DNS server.

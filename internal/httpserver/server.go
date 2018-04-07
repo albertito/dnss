@@ -1,6 +1,6 @@
-// Package httpstodns implements an HTTPS server which handles DNS requests
+// Package httpserver implements an HTTPS server which handles DNS requests
 // over HTTPS.
-package httpstodns
+package httpserver
 
 import (
 	"encoding/json"
@@ -55,7 +55,7 @@ func (s *Server) ListenAndServe() {
 // It implements an http.HandlerFunc so it can be used with any standard Go
 // HTTP server.
 func (s *Server) Resolve(w http.ResponseWriter, req *http.Request) {
-	tr := trace.New("httpstodns", "/resolve")
+	tr := trace.New("httpserver", "/resolve")
 	defer tr.Finish()
 
 	tr.LazyPrintf("from:%v", req.RemoteAddr)

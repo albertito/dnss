@@ -21,7 +21,7 @@ import (
 
 	"blitiri.com.ar/go/dnss/internal/dnsserver"
 	"blitiri.com.ar/go/dnss/internal/dnstohttps"
-	"blitiri.com.ar/go/dnss/internal/httpstodns"
+	"blitiri.com.ar/go/dnss/internal/httpserver"
 
 	"github.com/golang/glog"
 
@@ -98,7 +98,7 @@ func main() {
 	}
 
 	if *insecureForTesting {
-		httpstodns.InsecureForTesting = true
+		httpserver.InsecureForTesting = true
 	}
 
 	var wg sync.WaitGroup
@@ -132,7 +132,7 @@ func main() {
 
 	// HTTPS to DNS.
 	if *enableHTTPStoDNS {
-		s := httpstodns.Server{
+		s := httpserver.Server{
 			Addr:     *httpsAddr,
 			Upstream: *dnsUpstream,
 			CertFile: *httpsCertFile,

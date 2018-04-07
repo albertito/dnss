@@ -1,5 +1,5 @@
 // Tests for the query parsing.
-package httpstodns
+package httpserver
 
 import (
 	"net"
