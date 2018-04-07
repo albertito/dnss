@@ -21,7 +21,7 @@ import (
 // httpsResolver implements the dnsserver.Resolver interface by querying a
 // server via DNS-over-HTTPS (like https://dns.google.com).
 type httpsResolver struct {
-	Upstream string
+	Upstream *url.URL
 	CAFile   string
 	client   *http.Client
 }
@@ -42,7 +42,7 @@ func loadCertPool(caFile string) (*x509.CertPool, error) {
 
 // NewHTTPSResolver creates a new resolver which uses the given upstream URL
 // to resolve queries.
-func NewHTTPSResolver(upstream, caFile string) *httpsResolver {
+func NewHTTPSResolver(upstream *url.URL, caFile string) *httpsResolver {
 	return &httpsResolver{
 		Upstream: upstream,
 		CAFile:   caFile,
@@ -99,17 +99,18 @@ func (r *httpsResolver) Query(req *dns.Msg, tr trace.Trace) (*dns.Msg, error) {
 	}
 
 	// Build the query and send the request.
-	v := url.Values{}
-	v.Set("name", question.Name)
-	v.Set("type", dns.TypeToString[question.Qtype])
+	url := *r.Upstream
+	vs := url.Query()
+	vs.Set("name", question.Name)
+	vs.Set("type", dns.TypeToString[question.Qtype])
+	url.RawQuery = vs.Encode()
 	// TODO: add random_padding.
 
-	url := r.Upstream + "?" + v.Encode()
 	if glog.V(3) {
-		tr.LazyPrintf("GET %q", url)
+		tr.LazyPrintf("GET %v", url)
 	}
 
-	hr, err := r.client.Get(url)
+	hr, err := r.client.Get(url.String())
 	if err != nil {
 		return nil, fmt.Errorf("GET failed: %v", err)
 	}

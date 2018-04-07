@@ -15,6 +15,7 @@ import (
 	"flag"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -105,8 +106,12 @@ func main() {
 
 	// DNS to HTTPS.
 	if *enableDNStoHTTPS {
+		upstream, err := url.Parse(*httpsUpstream)
+		if err != nil {
+			glog.Fatalf("-https_upstream is not a valid URL: %v", err)
+		}
 		var resolver dnsserver.Resolver = dnstohttps.NewHTTPSResolver(
-			*httpsUpstream, *httpsClientCAFile)
+			upstream, *httpsClientCAFile)
 		if *enableCache {
 			cr := dnsserver.NewCachingResolver(resolver)
 			cr.RegisterDebugHandlers()

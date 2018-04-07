@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"sync"
@@ -46,7 +47,12 @@ func realMain(m *testing.M) int {
 	ServerAddr = DNSToHTTPSAddr
 
 	// DNS to HTTPS server.
-	r := dnstohttps.NewHTTPSResolver("http://"+HTTPSToDNSAddr+"/resolve", "")
+	HTTPSToDNSURL, err := url.Parse("http://" + HTTPSToDNSAddr + "/resolve")
+	if err != nil {
+		fmt.Printf("invalid URL: %v", err)
+		return 1
+	}
+	r := dnstohttps.NewHTTPSResolver(HTTPSToDNSURL, "")
 	dtoh := dnsserver.New(DNSToHTTPSAddr, r, "")
 	go dtoh.ListenAndServe()
 

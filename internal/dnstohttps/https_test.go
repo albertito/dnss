@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"testing"
 
@@ -130,12 +131,17 @@ func realMain(m *testing.M) int {
 	httpsrv := httptest.NewServer(http.HandlerFunc(DNSHandler))
 
 	// DNS to HTTPS server.
-	r := NewHTTPSResolver(httpsrv.URL, "")
+	srvURL, err := url.Parse(httpsrv.URL)
+	if err != nil {
+		fmt.Printf("Failed to parse test http server URL: %v\n", err)
+		return 1
+	}
+	r := NewHTTPSResolver(srvURL, "")
 	dth := dnsserver.New(DNSAddr, r, "")
 	go dth.ListenAndServe()
 
 	// Wait for the servers to start up.
-	err := testutil.WaitForDNSServer(DNSAddr)
+	err = testutil.WaitForDNSServer(DNSAddr)
 	if err != nil {
 		fmt.Printf("Error waiting for the test servers to start: %v\n", err)
 		fmt.Printf("Check the INFO logs for more details\n")
