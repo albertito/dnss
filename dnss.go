@@ -71,6 +71,9 @@ var (
 
 	insecureForTesting = flag.Bool("testing__insecure_http", false,
 		"INSECURE, for testing only")
+
+	dohMode = flag.Bool("experimental__doh_mode", false,
+		"DoH mode (experimental)")
 )
 
 func flushLogs() {
@@ -110,8 +113,16 @@ func main() {
 		if err != nil {
 			glog.Fatalf("-https_upstream is not a valid URL: %v", err)
 		}
-		var resolver dnsserver.Resolver = dnstohttps.NewHTTPSResolver(
-			upstream, *httpsClientCAFile)
+
+		var resolver dnsserver.Resolver
+		if *dohMode {
+			resolver = dnstohttps.NewDoHResolver(
+				upstream, *httpsClientCAFile)
+		} else {
+			resolver = dnstohttps.NewJSONResolver(
+				upstream, *httpsClientCAFile)
+		}
+
 		if *enableCache {
 			cr := dnsserver.NewCachingResolver(resolver)
 			cr.RegisterDebugHandlers()

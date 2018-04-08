@@ -1,11 +1,14 @@
 package dnstohttps
 
 import (
+	"bytes"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
+	"mime"
 	"net/http"
 	"net/url"
 	"time"
@@ -19,11 +22,15 @@ import (
 )
 
 // httpsResolver implements the dnsserver.Resolver interface by querying a
-// server via DNS-over-HTTPS (like https://dns.google.com).
+// server via DNS-over-HTTPS.
+//
+// It supports two modes: JSON (like https://dns.google.com) and DoH
+// (https://tools.ietf.org/html/draft-ietf-doh-dns-over-https-05).
 type httpsResolver struct {
 	Upstream *url.URL
 	CAFile   string
 	client   *http.Client
+	mode     string
 }
 
 func loadCertPool(caFile string) (*x509.CertPool, error) {
@@ -40,12 +47,23 @@ func loadCertPool(caFile string) (*x509.CertPool, error) {
 	return pool, nil
 }
 
-// NewHTTPSResolver creates a new resolver which uses the given upstream URL
-// to resolve queries.
-func NewHTTPSResolver(upstream *url.URL, caFile string) *httpsResolver {
+// NewJSONResolver creates a new JSON resolver which uses the given upstream
+// URL to resolve queries.
+func NewJSONResolver(upstream *url.URL, caFile string) *httpsResolver {
 	return &httpsResolver{
 		Upstream: upstream,
 		CAFile:   caFile,
+		mode:     "JSON",
+	}
+}
+
+// NewDoHResolver creates a new DoH resolver, which uses the given upstream
+// URL to resolve queries.
+func NewDoHResolver(upstream *url.URL, caFile string) *httpsResolver {
+	return &httpsResolver{
+		Upstream: upstream,
+		CAFile:   caFile,
+		mode:     "DoH",
 	}
 }
 
@@ -85,6 +103,63 @@ func (r *httpsResolver) Maintain() {
 }
 
 func (r *httpsResolver) Query(req *dns.Msg, tr trace.Trace) (*dns.Msg, error) {
+	if r.mode == "DoH" {
+		return r.queryDoH(req, tr)
+	}
+	return r.queryJSON(req, tr)
+}
+
+func (r *httpsResolver) queryDoH(req *dns.Msg, tr trace.Trace) (*dns.Msg, error) {
+	packed, err := req.Pack()
+	if err != nil {
+		return nil, fmt.Errorf("cannot pack query: %v", err)
+	}
+
+	if glog.V(3) {
+		tr.LazyPrintf("DoH POST %v", r.Upstream)
+	}
+
+	// TODO: Accept header.
+
+	hr, err := r.client.Post(
+		r.Upstream.String(),
+		"application/dns-udpwireformat",
+		bytes.NewReader(packed))
+	if err != nil {
+		return nil, fmt.Errorf("POST failed: %v", err)
+	}
+	tr.LazyPrintf("%s  %s", hr.Proto, hr.Status)
+	defer hr.Body.Close()
+
+	if hr.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("Response status: %s", hr.Status)
+	}
+
+	// Read the HTTPS response, and parse the message.
+	ct, _, err := mime.ParseMediaType(hr.Header.Get("Content-Type"))
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse content type: %v", err)
+	}
+
+	if ct != "application/dns-udpwireformat" {
+		return nil, fmt.Errorf("unknown response content type %q", ct)
+	}
+
+	respRaw, err := ioutil.ReadAll(io.LimitReader(hr.Body, 4092))
+	if err != nil {
+		return nil, fmt.Errorf("error reading from body: %v", err)
+	}
+
+	respDNS := &dns.Msg{}
+	err = respDNS.Unpack(respRaw)
+	if err != nil {
+		return nil, fmt.Errorf("error unpacking response: %v", err)
+	}
+
+	return respDNS, nil
+}
+
+func (r *httpsResolver) queryJSON(req *dns.Msg, tr trace.Trace) (*dns.Msg, error) {
 	// Only answer single-question queries.
 	// In practice, these are all we get, and almost no server supports
 	// multi-question requests anyway.
@@ -107,7 +182,7 @@ func (r *httpsResolver) Query(req *dns.Msg, tr trace.Trace) (*dns.Msg, error) {
 	// TODO: add random_padding.
 
 	if glog.V(3) {
-		tr.LazyPrintf("GET %v", url)
+		tr.LazyPrintf("JSON GET %v", url)
 	}
 
 	hr, err := r.client.Get(url.String())

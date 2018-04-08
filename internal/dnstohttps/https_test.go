@@ -136,7 +136,7 @@ func realMain(m *testing.M) int {
 		fmt.Printf("Failed to parse test http server URL: %v\n", err)
 		return 1
 	}
-	r := NewHTTPSResolver(srvURL, "")
+	r := NewJSONResolver(srvURL, "")
 	dth := dnsserver.New(DNSAddr, r, "")
 	go dth.ListenAndServe()
 

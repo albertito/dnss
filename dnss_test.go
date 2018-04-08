@@ -52,7 +52,7 @@ func realMain(m *testing.M) int {
 		fmt.Printf("invalid URL: %v", err)
 		return 1
 	}
-	r := dnstohttps.NewHTTPSResolver(HTTPSToDNSURL, "")
+	r := dnstohttps.NewJSONResolver(HTTPSToDNSURL, "")
 	dtoh := dnsserver.New(DNSToHTTPSAddr, r, "")
 	go dtoh.ListenAndServe()
 
