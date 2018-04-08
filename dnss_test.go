@@ -19,40 +19,42 @@ import (
 	"github.com/miekg/dns"
 )
 
+// Custom test main, so we parse the flags and flush the logs before exiting.
+func TestMain(m *testing.M) {
+	flag.Parse()
+	r := m.Run()
+	glog.Flush()
+	os.Exit(r)
+}
+
 /////////////////////////////////////////////////////////////////////
 // End to end tests
 
-// Setup:
+// Setup the following environment:
 // DNS client -> DNS-to-HTTPS -> HTTPS-to-DNS -> DNS server
 //
 // The DNS client will be created on each test.
 // The DNS server will be created below, and the tests can adjust its
 // responses as needed.
-
-// Address of the DNS-to-HTTPS server, for the tests to use.
-var ServerAddr string
-
-// realMain is the real main function, which returns the value to pass to
-// os.Exit(). We have to do this so we can use defer.
-func realMain(m *testing.M) int {
-	flag.Parse()
-	defer glog.Flush()
-
+//
+// Returns the address of the DNS-to-HTTPS server, for the tests to use.
+func Setup(tb testing.TB, mode string) string {
 	DNSToHTTPSAddr := testutil.GetFreePort()
 	HTTPSToDNSAddr := testutil.GetFreePort()
 	DNSServerAddr := testutil.GetFreePort()
 
-	// We want tests talking to the DNS-to-HTTPS server, the first in the
-	// chain.
-	ServerAddr = DNSToHTTPSAddr
-
 	// DNS to HTTPS server.
 	HTTPSToDNSURL, err := url.Parse("http://" + HTTPSToDNSAddr + "/resolve")
 	if err != nil {
-		fmt.Printf("invalid URL: %v", err)
-		return 1
+		tb.Fatalf("invalid URL: %v", err)
 	}
-	r := dnstohttps.NewJSONResolver(HTTPSToDNSURL, "")
+
+	var r dnsserver.Resolver
+	if mode == "DoH" {
+		r = dnstohttps.NewDoHResolver(HTTPSToDNSURL, "")
+	} else {
+		r = dnstohttps.NewJSONResolver(HTTPSToDNSURL, "")
+	}
 	dtoh := dnsserver.New(DNSToHTTPSAddr, r, "")
 	go dtoh.ListenAndServe()
 
@@ -72,18 +74,14 @@ func realMain(m *testing.M) int {
 	err2 := testutil.WaitForHTTPServer(HTTPSToDNSAddr)
 	err3 := testutil.WaitForDNSServer(DNSServerAddr)
 	if err1 != nil || err2 != nil || err3 != nil {
-		fmt.Printf("Error waiting for the test servers to start:\n")
-		fmt.Printf("  DNS to HTTPS: %v\n", err1)
-		fmt.Printf("  HTTPS to DNS: %v\n", err2)
-		fmt.Printf("  DNS server:   %v\n", err3)
-		fmt.Printf("Check the INFO logs for more details\n")
-		return 1
+		tb.Logf("Error waiting for the test servers to start:\n")
+		tb.Logf("  DNS to HTTPS: %v\n", err1)
+		tb.Logf("  HTTPS to DNS: %v\n", err2)
+		tb.Logf("  DNS server:   %v\n", err3)
+		tb.Fatalf("Check the INFO logs for more details\n")
 	}
-	return m.Run()
-}
 
-func TestMain(m *testing.M) {
-	os.Exit(realMain(m))
+	return DNSToHTTPSAddr
 }
 
 // Fake DNS server.
@@ -158,6 +156,12 @@ func handleFakeDNS(w dns.ResponseWriter, r *dns.Msg) {
 //
 
 func TestEndToEnd(t *testing.T) {
+	t.Run("mode=JSON", func(t *testing.T) { testEndToEnd(t, "JSON") })
+	t.Run("mode=DoH", func(t *testing.T) { testEndToEnd(t, "DoH") })
+}
+
+func testEndToEnd(t *testing.T, mode string) {
+	ServerAddr := Setup(t, mode)
 	resetAnswers()
 	addAnswers(t, "test.blah. 3600 A 1.2.3.4")
 	_, ans, err := testutil.DNSQuery(ServerAddr, "test.blah.", dns.TypeA)
@@ -191,6 +195,7 @@ func TestEndToEnd(t *testing.T) {
 //
 
 func BenchmarkSimple(b *testing.B) {
+	ServerAddr := Setup(b, "DoH")
 	resetAnswers()
 	addAnswers(b, "test.blah. 3600 A 1.2.3.4")
 	b.ResetTimer()
