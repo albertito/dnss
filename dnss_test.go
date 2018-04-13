@@ -15,16 +15,17 @@ import (
 	"blitiri.com.ar/go/dnss/internal/dnstohttps"
 	"blitiri.com.ar/go/dnss/internal/httpserver"
 	"blitiri.com.ar/go/dnss/internal/testutil"
-	"github.com/golang/glog"
+	"blitiri.com.ar/go/log"
 	"github.com/miekg/dns"
 )
 
-// Custom test main, so we parse the flags and flush the logs before exiting.
+// Custom test main, so we reduce the default logging to avoid overly verbose
+// tests.
 func TestMain(m *testing.M) {
 	flag.Parse()
-	r := m.Run()
-	glog.Flush()
-	os.Exit(r)
+	log.Init()
+	log.Default.Level = log.Error
+	os.Exit(m.Run())
 }
 
 /////////////////////////////////////////////////////////////////////

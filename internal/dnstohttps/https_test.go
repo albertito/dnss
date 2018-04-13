@@ -13,7 +13,6 @@ import (
 	"blitiri.com.ar/go/dnss/internal/dnsserver"
 	"blitiri.com.ar/go/dnss/internal/testutil"
 
-	"github.com/golang/glog"
 	"github.com/miekg/dns"
 )
 
@@ -119,11 +118,8 @@ const jsonNXDOMAIN = ` {
 // Address where we will set up the DNS server.
 var DNSAddr string
 
-// realMain is the real main function, which returns the value to pass to
-// os.Exit(). We have to do this so we can use defer.
-func realMain(m *testing.M) int {
+func TestMain(m *testing.M) {
 	flag.Parse()
-	defer glog.Flush()
 
 	DNSAddr = testutil.GetFreePort()
 
@@ -134,7 +130,7 @@ func realMain(m *testing.M) int {
 	srvURL, err := url.Parse(httpsrv.URL)
 	if err != nil {
 		fmt.Printf("Failed to parse test http server URL: %v\n", err)
-		return 1
+		os.Exit(1)
 	}
 	r := NewJSONResolver(srvURL, "")
 	dth := dnsserver.New(DNSAddr, r, "")
@@ -145,12 +141,7 @@ func realMain(m *testing.M) int {
 	if err != nil {
 		fmt.Printf("Error waiting for the test servers to start: %v\n", err)
 		fmt.Printf("Check the INFO logs for more details\n")
-		return 1
+		os.Exit(1)
 	}
-
-	return m.Run()
-}
-
-func TestMain(m *testing.M) {
-	os.Exit(realMain(m))
+	os.Exit(m.Run())
 }

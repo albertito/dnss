@@ -18,13 +18,11 @@ import (
 	"net/url"
 	"strings"
 	"sync"
-	"time"
 
 	"blitiri.com.ar/go/dnss/internal/dnsserver"
 	"blitiri.com.ar/go/dnss/internal/dnstohttps"
 	"blitiri.com.ar/go/dnss/internal/httpserver"
-
-	"github.com/golang/glog"
+	"blitiri.com.ar/go/log"
 
 	// Register pprof handlers for monitoring and debugging.
 	_ "net/http/pprof"
@@ -64,8 +62,6 @@ var (
 	httpsAddr = flag.String("https_server_addr", ":443",
 		"address to listen on for HTTPS-to-DNS requests")
 
-	logFlushEvery = flag.Duration("log_flush_every", 30*time.Second,
-		"how often to flush logs")
 	monitoringListenAddr = flag.String("monitoring_listen_addr", "",
 		"address to listen on for monitoring HTTP requests")
 
@@ -74,31 +70,26 @@ var (
 
 	dohMode = flag.Bool("experimental__doh_mode", false,
 		"DoH mode (experimental)")
+
+	// Deprecated flags that no longer make sense; we keep them for backwards
+	// compatibility but may be removed in the future.
+	_ = flag.Duration("log_flush_every", 0, "deprecated, will be removed")
+	_ = flag.Bool("logtostderr", false, "deprecated, will be removed")
 )
 
-func flushLogs() {
-	c := time.Tick(*logFlushEvery)
-	for range c {
-		glog.Flush()
-	}
-}
-
 func main() {
-	defer glog.Flush()
-
 	flag.Parse()
-
-	go flushLogs()
+	log.Init()
 
 	if *monitoringListenAddr != "" {
 		launchMonitoringServer(*monitoringListenAddr)
 	}
 
 	if !(*enableDNStoHTTPS || *enableHTTPStoDNS) {
-		glog.Error("Need to set one of the following:")
-		glog.Error("  --enable_dns_to_https")
-		glog.Error("  --enable_https_to_dns")
-		glog.Fatal("")
+		log.Errorf("Need to set one of the following:")
+		log.Errorf("  --enable_dns_to_https")
+		log.Errorf("  --enable_https_to_dns")
+		log.Fatalf("")
 	}
 
 	if *insecureForTesting {
@@ -111,7 +102,7 @@ func main() {
 	if *enableDNStoHTTPS {
 		upstream, err := url.Parse(*httpsUpstream)
 		if err != nil {
-			glog.Fatalf("-https_upstream is not a valid URL: %v", err)
+			log.Fatalf("-https_upstream is not a valid URL: %v", err)
 		}
 
 		var resolver dnsserver.Resolver
@@ -134,7 +125,7 @@ func main() {
 		// so we don't have problems resolving it.
 		fallbackDoms := strings.Split(*fallbackDomains, " ")
 		if proxyDomain := proxyServerDomain(); proxyDomain != "" {
-			glog.Infof("Adding proxy %q to fallback domains", proxyDomain)
+			log.Infof("Adding proxy %q to fallback domains", proxyDomain)
 			fallbackDoms = append(fallbackDoms, proxyDomain)
 		}
 
@@ -203,7 +194,7 @@ func extractHostname(host string) string {
 }
 
 func launchMonitoringServer(addr string) {
-	glog.Infof("Monitoring HTTP server listening on %s", addr)
+	log.Infof("Monitoring HTTP server listening on %s", addr)
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/" {

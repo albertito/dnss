@@ -7,7 +7,6 @@ Requires=dnss.socket
 [Service]
 ExecStart=/usr/local/bin/dnss \
         --dns_listen_addr=systemd \
-        --logtostderr \
         --monitoring_listen_addr=127.0.0.1:8081 \
         --enable_dns_to_https
 

@@ -8,7 +8,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/golang/glog"
+	"blitiri.com.ar/go/log"
+
 	"github.com/miekg/dns"
 	"golang.org/x/net/trace"
 )
@@ -120,7 +121,7 @@ func (c *cachingResolver) DumpCache(w http.ResponseWriter, r *http.Request) {
 	for q, ans := range c.answer {
 		// Only include names and records if we are running verbosily.
 		name := "<hidden>"
-		if glog.V(3) {
+		if log.V(3) {
 			name = q.Name
 		}
 
@@ -130,7 +131,7 @@ func (c *cachingResolver) DumpCache(w http.ResponseWriter, r *http.Request) {
 		ttl := getTTL(ans)
 		fmt.Fprintf(buf, "   expires in %s (%s)\n", ttl, time.Now().Add(ttl))
 
-		if glog.V(3) {
+		if log.V(3) {
 			for _, rr := range ans {
 				fmt.Fprintf(buf, "   %s\n", rr.String())
 			}

@@ -15,8 +15,8 @@ import (
 
 	"blitiri.com.ar/go/dnss/internal/dnsjson"
 	"blitiri.com.ar/go/dnss/internal/dnsserver"
+	"blitiri.com.ar/go/log"
 
-	"github.com/golang/glog"
 	"github.com/miekg/dns"
 	"golang.org/x/net/trace"
 )
@@ -115,7 +115,7 @@ func (r *httpsResolver) queryDoH(req *dns.Msg, tr trace.Trace) (*dns.Msg, error)
 		return nil, fmt.Errorf("cannot pack query: %v", err)
 	}
 
-	if glog.V(3) {
+	if log.V(3) {
 		tr.LazyPrintf("DoH POST %v", r.Upstream)
 	}
 
@@ -181,7 +181,7 @@ func (r *httpsResolver) queryJSON(req *dns.Msg, tr trace.Trace) (*dns.Msg, error
 	url.RawQuery = vs.Encode()
 	// TODO: add random_padding.
 
-	if glog.V(3) {
+	if log.V(3) {
 		tr.LazyPrintf("JSON GET %v", url)
 	}
 

@@ -25,7 +25,7 @@ import (
 
 	"blitiri.com.ar/go/dnss/internal/dnsjson"
 	"blitiri.com.ar/go/dnss/internal/util"
-	"github.com/golang/glog"
+	"blitiri.com.ar/go/log"
 	"github.com/miekg/dns"
 	"golang.org/x/net/trace"
 )
@@ -53,14 +53,14 @@ func (s *Server) ListenAndServe() {
 		Handler: mux,
 	}
 
-	glog.Infof("HTTPS listening on %s", s.Addr)
+	log.Infof("HTTPS listening on %s", s.Addr)
 	var err error
 	if InsecureForTesting {
 		err = srv.ListenAndServe()
 	} else {
 		err = srv.ListenAndServeTLS(s.CertFile, s.KeyFile)
 	}
-	glog.Fatalf("HTTPS exiting: %s", err)
+	log.Fatalf("HTTPS exiting: %s", err)
 }
 
 // Resolve implements the HTTP handler for incoming DNS resolution requests.

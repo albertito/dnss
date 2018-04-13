@@ -11,11 +11,11 @@ import (
 	"sync"
 
 	"github.com/coreos/go-systemd/activation"
-	"github.com/golang/glog"
 	"github.com/miekg/dns"
 	"golang.org/x/net/trace"
 
 	"blitiri.com.ar/go/dnss/internal/util"
+	"blitiri.com.ar/go/log"
 )
 
 // newID is a channel used to generate new request IDs.
@@ -131,7 +131,7 @@ func (s *Server) Handler(w dns.ResponseWriter, r *dns.Msg) {
 
 	fromUp, err := s.resolver.Query(r, tr)
 	if err != nil {
-		glog.Infof(err.Error())
+		log.Infof(err.Error())
 		tr.LazyPrintf(err.Error())
 		tr.SetError()
 		return
@@ -147,7 +147,7 @@ func (s *Server) Handler(w dns.ResponseWriter, r *dns.Msg) {
 func (s *Server) ListenAndServe() {
 	err := s.resolver.Init()
 	if err != nil {
-		glog.Fatalf("Error initializing: %v", err)
+		log.Fatalf("Error initializing: %v", err)
 	}
 
 	go s.resolver.Maintain()
@@ -160,21 +160,21 @@ func (s *Server) ListenAndServe() {
 }
 
 func (s *Server) classicServe() {
-	glog.Infof("DNS listening on %s", s.Addr)
+	log.Infof("DNS listening on %s", s.Addr)
 
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
 		err := dns.ListenAndServe(s.Addr, "udp", dns.HandlerFunc(s.Handler))
-		glog.Fatalf("Exiting UDP: %v", err)
+		log.Fatalf("Exiting UDP: %v", err)
 	}()
 
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
 		err := dns.ListenAndServe(s.Addr, "tcp", dns.HandlerFunc(s.Handler))
-		glog.Fatalf("Exiting TCP: %v", err)
+		log.Fatalf("Exiting TCP: %v", err)
 	}()
 
 	wg.Wait()
@@ -187,12 +187,12 @@ func (s *Server) systemdServe() {
 	// entries for the file descriptors that don't match.
 	pconns, err := activation.PacketConns(false)
 	if err != nil {
-		glog.Fatalf("Error getting systemd packet conns: %v", err)
+		log.Fatalf("Error getting systemd packet conns: %v", err)
 	}
 
 	listeners, err := activation.Listeners(false)
 	if err != nil {
-		glog.Fatalf("Error getting systemd listeners: %v", err)
+		log.Fatalf("Error getting systemd listeners: %v", err)
 	}
 
 	var wg sync.WaitGroup
@@ -205,9 +205,9 @@ func (s *Server) systemdServe() {
 		wg.Add(1)
 		go func(c net.PacketConn) {
 			defer wg.Done()
-			glog.Infof("Activate on packet connection (UDP)")
+			log.Infof("Activate on packet connection (UDP)")
 			err := dns.ActivateAndServe(nil, c, dns.HandlerFunc(s.Handler))
-			glog.Fatalf("Exiting UDP listener: %v", err)
+			log.Fatalf("Exiting UDP listener: %v", err)
 		}(pconn)
 	}
 
@@ -219,14 +219,14 @@ func (s *Server) systemdServe() {
 		wg.Add(1)
 		go func(l net.Listener) {
 			defer wg.Done()
-			glog.Infof("Activate on listening socket (TCP)")
+			log.Infof("Activate on listening socket (TCP)")
 			err := dns.ActivateAndServe(l, nil, dns.HandlerFunc(s.Handler))
-			glog.Fatalf("Exiting TCP listener: %v", err)
+			log.Fatalf("Exiting TCP listener: %v", err)
 		}(lis)
 	}
 
 	wg.Wait()
 
 	// We should only get here if there were no useful sockets.
-	glog.Fatalf("No systemd sockets, did you forget the .socket?")
+	log.Fatalf("No systemd sockets, did you forget the .socket?")
 }

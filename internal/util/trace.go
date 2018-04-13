@@ -4,14 +4,15 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/golang/glog"
+	"blitiri.com.ar/go/log"
+
 	"github.com/miekg/dns"
 	"golang.org/x/net/trace"
 )
 
 // TraceQuestion adds the given question to the trace.
 func TraceQuestion(tr trace.Trace, qs []dns.Question) {
-	if !glog.V(3) {
+	if !log.V(3) {
 		return
 	}
 
@@ -29,7 +30,7 @@ func questionsToString(qs []dns.Question) string {
 
 // TraceAnswer adds the given DNS answer to the trace.
 func TraceAnswer(tr trace.Trace, m *dns.Msg) {
-	if !glog.V(3) {
+	if !log.V(3) {
 		return
 	}
 
@@ -41,7 +42,7 @@ func TraceAnswer(tr trace.Trace, m *dns.Msg) {
 
 // TraceError adds the given error to the trace.
 func TraceError(tr trace.Trace, err error) {
-	glog.Info(err.Error())
+	log.Infof(err.Error())
 	tr.LazyPrintf(err.Error())
 	tr.SetError()
 }
