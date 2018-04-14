@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"golang.org/x/net/trace"
+
 	"github.com/miekg/dns"
 )
 
@@ -62,8 +64,8 @@ func WaitForHTTPServer(addr string) error {
 	return fmt.Errorf("timed out")
 }
 
-// Get a free (TCP) port. This is hacky and not race-free, but it works well
-// enough for testing purposes.
+// GetFreePort returns a free TCP port. This is hacky and not race-free, but
+// it works well enough for testing purposes.
 func GetFreePort() string {
 	l, _ := net.Listen("tcp", "localhost:0")
 	defer l.Close()
@@ -83,6 +85,62 @@ func DNSQuery(srv, addr string, qtype uint16) (*dns.Msg, dns.RR, error) {
 	} else {
 		return in, nil, nil
 	}
+}
+
+// TestResolver is a dnsserver.Resolver implementation for testing, so we can
+// control its responses during tests.
+type TestResolver struct {
+	// Has this resolver been initialized?
+	Initialized bool
+
+	// Maintain() sends a value over this channel.
+	MaintainC chan bool
+
+	// The last query we've seen.
+	LastQuery *dns.Msg
+
+	// What we will respond to queries.
+	Response  *dns.Msg
+	RespError error
+}
+
+// NewTestResolver creates a new TestResolver with minimal initialization.
+func NewTestResolver() *TestResolver {
+	return &TestResolver{
+		MaintainC: make(chan bool, 1),
+	}
+}
+
+// Init the resolver.
+func (r *TestResolver) Init() error {
+	r.Initialized = true
+	return nil
+}
+
+// Maintain the resolver.
+func (r *TestResolver) Maintain() {
+	r.MaintainC <- true
+}
+
+// Query handles the given query, returning the pre-recorded response.
+func (r *TestResolver) Query(req *dns.Msg, tr trace.Trace) (*dns.Msg, error) {
+	r.LastQuery = req
+	if r.Response != nil {
+		r.Response.Question = req.Question
+		r.Response.Authoritative = true
+	}
+	return r.Response, r.RespError
+}
+
+// ServeTestDNSServer starts the fake DNS server.
+func ServeTestDNSServer(addr string, handler func(dns.ResponseWriter, *dns.Msg)) {
+	server := &dns.Server{
+		Addr:    addr,
+		Handler: dns.HandlerFunc(handler),
+		Net:     "udp",
+	}
+	err := server.ListenAndServe()
+	panic(err)
 }
 
 // TestTrace implements the tracer.Trace interface, but prints using the test

@@ -1,8 +1,6 @@
 package dnsserver
 
 // Tests for the caching resolver.
-// Note the other resolvers have more functional tests in the testing/
-// directory.
 
 import (
 	"fmt"
@@ -14,48 +12,7 @@ import (
 	"blitiri.com.ar/go/dnss/internal/testutil"
 
 	"github.com/miekg/dns"
-	"golang.org/x/net/trace"
 )
-
-// A test resolver that we use as backing for the caching resolver under test.
-type TestResolver struct {
-	// Has this resolver been initialized?
-	init bool
-
-	// Maintain() sends a value over this channel.
-	maintain chan bool
-
-	// The last query we've seen.
-	lastQuery *dns.Msg
-
-	// What we will respond to queries.
-	response  *dns.Msg
-	respError error
-}
-
-func NewTestResolver() *TestResolver {
-	return &TestResolver{
-		maintain: make(chan bool, 1),
-	}
-}
-
-func (r *TestResolver) Init() error {
-	r.init = true
-	return nil
-}
-
-func (r *TestResolver) Maintain() {
-	r.maintain <- true
-}
-
-func (r *TestResolver) Query(req *dns.Msg, tr trace.Trace) (*dns.Msg, error) {
-	r.lastQuery = req
-	if r.response != nil {
-		r.response.Question = req.Question
-		r.response.Authoritative = true
-	}
-	return r.response, r.respError
-}
 
 //
 // === Tests ===
@@ -63,12 +20,12 @@ func (r *TestResolver) Query(req *dns.Msg, tr trace.Trace) (*dns.Msg, error) {
 
 // Test basic functionality.
 func TestBasic(t *testing.T) {
-	r := NewTestResolver()
+	r := testutil.NewTestResolver()
 
 	c := NewCachingResolver(r)
 
 	c.Init()
-	if !r.init {
+	if !r.Initialized {
 		t.Errorf("caching resolver did not initialize backing")
 	}
 
@@ -94,7 +51,7 @@ func TestBasic(t *testing.T) {
 
 // Test TTL handling.
 func TestTTL(t *testing.T) {
-	r := NewTestResolver()
+	r := testutil.NewTestResolver()
 	c := NewCachingResolver(r)
 	c.Init()
 	resetStats()
@@ -133,7 +90,7 @@ func TestTTL(t *testing.T) {
 
 	// Check that the back resolver's Maintain() is called.
 	select {
-	case <-r.maintain:
+	case <-r.MaintainC:
 		t.Log("Maintain() called")
 	case <-time.After(1 * time.Second):
 		t.Errorf("back resolver Maintain() was not called")
@@ -155,7 +112,7 @@ func TestTTL(t *testing.T) {
 
 // Test that we don't cache failed queries.
 func TestFailedQueries(t *testing.T) {
-	r := NewTestResolver()
+	r := testutil.NewTestResolver()
 	c := NewCachingResolver(r)
 	c.Init()
 	resetStats()
@@ -177,12 +134,12 @@ func TestFailedQueries(t *testing.T) {
 // when we're full, which is not ideal and will likely be changed in the
 // future.
 func TestCacheFull(t *testing.T) {
-	r := NewTestResolver()
+	r := testutil.NewTestResolver()
 	c := NewCachingResolver(r)
 	c.Init()
 	resetStats()
 
-	r.response = newReply(mustNewRR(t, "test. A 1.2.3.4"))
+	r.Response = newReply(mustNewRR(t, "test. A 1.2.3.4"))
 
 	// Do maxCacheSize+1 different requests.
 	for i := 0; i < maxCacheSize+1; i++ {
@@ -212,7 +169,7 @@ func TestCacheFull(t *testing.T) {
 // Test behaviour when the size of the cache is 0 (so users can disable it
 // that way).
 func TestZeroSize(t *testing.T) {
-	r := NewTestResolver()
+	r := testutil.NewTestResolver()
 	c := NewCachingResolver(r)
 	c.Init()
 	resetStats()
@@ -222,7 +179,7 @@ func TestZeroSize(t *testing.T) {
 	maxCacheSize = 0
 	defer func() { maxCacheSize = prevMaxCacheSize }()
 
-	r.response = newReply(mustNewRR(t, "test. A 1.2.3.4"))
+	r.Response = newReply(mustNewRR(t, "test. A 1.2.3.4"))
 
 	// Do 5 different requests.
 	for i := 0; i < 5; i++ {
@@ -249,8 +206,8 @@ func TestZeroSize(t *testing.T) {
 func BenchmarkCacheSimple(b *testing.B) {
 	var err error
 
-	r := NewTestResolver()
-	r.response = newReply(mustNewRR(b, "test. A 1.2.3.4"))
+	r := testutil.NewTestResolver()
+	r.Response = newReply(mustNewRR(b, "test. A 1.2.3.4"))
 
 	c := NewCachingResolver(r)
 	c.Init()
@@ -293,8 +250,8 @@ func dumpStats() string {
 func queryA(t *testing.T, c *cachingResolver, rr, domain, expected string) *dns.Msg {
 	// Set up the response from the given RR (if any).
 	if rr != "" {
-		back := c.back.(*TestResolver)
-		back.response = newReply(mustNewRR(t, rr))
+		back := c.back.(*testutil.TestResolver)
+		back.Response = newReply(mustNewRR(t, rr))
 	}
 
 	tr := testutil.NewTestTrace(t)
@@ -320,10 +277,10 @@ func queryA(t *testing.T, c *cachingResolver, rr, domain, expected string) *dns.
 }
 
 func queryFail(t *testing.T, c *cachingResolver) *dns.Msg {
-	back := c.back.(*TestResolver)
-	back.response = &dns.Msg{}
-	back.response.Response = true
-	back.response.Rcode = dns.RcodeNameError
+	back := c.back.(*testutil.TestResolver)
+	back.Response = &dns.Msg{}
+	back.Response.Response = true
+	back.Response.Rcode = dns.RcodeNameError
 
 	tr := testutil.NewTestTrace(t)
 	defer tr.Finish()

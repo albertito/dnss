@@ -67,8 +67,8 @@ func Setup(tb testing.TB, mode string) string {
 	httpserver.InsecureForTesting = true
 	go htod.ListenAndServe()
 
-	// Fake DNS server.
-	go ServeFakeDNSServer(DNSServerAddr)
+	// Test DNS server.
+	go testutil.ServeTestDNSServer(DNSServerAddr, handleTestDNS)
 
 	// Wait for the servers to start up.
 	err1 := testutil.WaitForDNSServer(DNSToHTTPSAddr)
@@ -83,17 +83,6 @@ func Setup(tb testing.TB, mode string) string {
 	}
 
 	return DNSToHTTPSAddr
-}
-
-// Fake DNS server.
-func ServeFakeDNSServer(addr string) {
-	server := &dns.Server{
-		Addr:    addr,
-		Handler: dns.HandlerFunc(handleFakeDNS),
-		Net:     "udp",
-	}
-	err := server.ListenAndServe()
-	panic(err)
 }
 
 // DNS answers to give, as a map of "name type" -> []RR.
@@ -122,7 +111,7 @@ func addAnswers(tb testing.TB, zone string) {
 	}
 }
 
-func handleFakeDNS(w dns.ResponseWriter, r *dns.Msg) {
+func handleTestDNS(w dns.ResponseWriter, r *dns.Msg) {
 	m := &dns.Msg{}
 	m.SetReply(r)
 
