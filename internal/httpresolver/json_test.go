@@ -1,5 +1,4 @@
-// Tests for dnss-to-https mode.
-package dnstohttps
+package httpresolver
 
 import (
 	"flag"
@@ -132,7 +131,7 @@ func TestMain(m *testing.M) {
 		fmt.Printf("Failed to parse test http server URL: %v\n", err)
 		os.Exit(1)
 	}
-	r := NewJSONResolver(srvURL, "")
+	r := NewJSON(srvURL, "")
 	dth := dnsserver.New(DNSAddr, r, "")
 	go dth.ListenAndServe()
 

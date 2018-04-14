@@ -1,4 +1,4 @@
-package dnstohttps
+package httpresolver
 
 import (
 	"bytes"
@@ -22,7 +22,7 @@ import (
 )
 
 // httpsResolver implements the dnsserver.Resolver interface by querying a
-// server via DNS-over-HTTPS.
+// server via DNS over HTTPS.
 //
 // It supports two modes: JSON (like https://dns.google.com) and DoH
 // (https://tools.ietf.org/html/draft-ietf-doh-dns-over-https-05).
@@ -47,9 +47,9 @@ func loadCertPool(caFile string) (*x509.CertPool, error) {
 	return pool, nil
 }
 
-// NewJSONResolver creates a new JSON resolver which uses the given upstream
-// URL to resolve queries.
-func NewJSONResolver(upstream *url.URL, caFile string) *httpsResolver {
+// NewJSON creates a new JSON resolver which uses the given upstream URL to
+// resolve queries.
+func NewJSON(upstream *url.URL, caFile string) *httpsResolver {
 	return &httpsResolver{
 		Upstream: upstream,
 		CAFile:   caFile,
@@ -57,9 +57,9 @@ func NewJSONResolver(upstream *url.URL, caFile string) *httpsResolver {
 	}
 }
 
-// NewDoHResolver creates a new DoH resolver, which uses the given upstream
+// NewDoH creates a new DoH resolver, which uses the given upstream
 // URL to resolve queries.
-func NewDoHResolver(upstream *url.URL, caFile string) *httpsResolver {
+func NewDoH(upstream *url.URL, caFile string) *httpsResolver {
 	return &httpsResolver{
 		Upstream: upstream,
 		CAFile:   caFile,

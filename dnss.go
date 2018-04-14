@@ -20,7 +20,7 @@ import (
 	"sync"
 
 	"blitiri.com.ar/go/dnss/internal/dnsserver"
-	"blitiri.com.ar/go/dnss/internal/dnstohttps"
+	"blitiri.com.ar/go/dnss/internal/httpresolver"
 	"blitiri.com.ar/go/dnss/internal/httpserver"
 	"blitiri.com.ar/go/log"
 
@@ -107,11 +107,9 @@ func main() {
 
 		var resolver dnsserver.Resolver
 		if *dohMode {
-			resolver = dnstohttps.NewDoHResolver(
-				upstream, *httpsClientCAFile)
+			resolver = httpresolver.NewDoH(upstream, *httpsClientCAFile)
 		} else {
-			resolver = dnstohttps.NewJSONResolver(
-				upstream, *httpsClientCAFile)
+			resolver = httpresolver.NewJSON(upstream, *httpsClientCAFile)
 		}
 
 		if *enableCache {

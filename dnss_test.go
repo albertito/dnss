@@ -12,7 +12,7 @@ import (
 	"testing"
 
 	"blitiri.com.ar/go/dnss/internal/dnsserver"
-	"blitiri.com.ar/go/dnss/internal/dnstohttps"
+	"blitiri.com.ar/go/dnss/internal/httpresolver"
 	"blitiri.com.ar/go/dnss/internal/httpserver"
 	"blitiri.com.ar/go/dnss/internal/testutil"
 	"blitiri.com.ar/go/log"
@@ -52,9 +52,9 @@ func Setup(tb testing.TB, mode string) string {
 
 	var r dnsserver.Resolver
 	if mode == "DoH" {
-		r = dnstohttps.NewDoHResolver(HTTPSToDNSURL, "")
+		r = httpresolver.NewDoH(HTTPSToDNSURL, "")
 	} else {
-		r = dnstohttps.NewJSONResolver(HTTPSToDNSURL, "")
+		r = httpresolver.NewJSON(HTTPSToDNSURL, "")
 	}
 	dtoh := dnsserver.New(DNSToHTTPSAddr, r, "")
 	go dtoh.ListenAndServe()
