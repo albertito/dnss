@@ -110,8 +110,8 @@ func (c *cachingResolver) Init() error {
 // Note these are global by nature, if you try to register them multiple
 // times, you will get a panic.
 func (c *cachingResolver) RegisterDebugHandlers() {
-	http.HandleFunc("/debug/dnstohttps/cache/dump", c.DumpCache)
-	http.HandleFunc("/debug/dnstohttps/cache/flush", c.FlushCache)
+	http.HandleFunc("/debug/dnsserver/cache/dump", c.DumpCache)
+	http.HandleFunc("/debug/dnsserver/cache/flush", c.FlushCache)
 }
 
 func (c *cachingResolver) DumpCache(w http.ResponseWriter, r *http.Request) {
@@ -157,7 +157,7 @@ func (c *cachingResolver) Maintain() {
 	go c.back.Maintain()
 
 	for range time.Tick(maintenancePeriod) {
-		tr := trace.New("dnstohttps.Cache", "GC")
+		tr := trace.New("dnsserver.Cache", "GC")
 		var total, expired int
 
 		c.mu.Lock()

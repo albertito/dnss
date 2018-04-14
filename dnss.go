@@ -223,10 +223,10 @@ const monitoringHTMLIndex = `<!DOCTYPE html>
           <small><a href="https://godoc.org/golang.org/x/net/trace">
             (ref)</a></small>
         <ul>
-          <li><a href="/debug/requests?fam=dnstohttp&b=11">dnstohttp latency</a>
-          <li><a href="/debug/requests?fam=dnstohttp&b=0&exp=1">dnstohttp trace</a>
+          <li><a href="/debug/requests?fam=dnsserver&b=11">dns server latency</a>
+          <li><a href="/debug/requests?fam=dnsserver&b=0&exp=1">dns server trace</a>
         </ul>
-      <li><a href="/debug/dnstohttp/cache/dump">cache dump</a>
+      <li><a href="/debug/dnsserver/cache/dump">cache dump</a>
       <li><a href="/debug/pprof">pprof</a>
           <small><a href="https://golang.org/pkg/net/http/pprof/">
             (ref)</a></small>

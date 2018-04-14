@@ -75,7 +75,7 @@ func (s *Server) SetFallback(upstream string, domains []string) {
 
 // Handler for the incoming DNS queries.
 func (s *Server) Handler(w dns.ResponseWriter, r *dns.Msg) {
-	tr := trace.New("dnstohttp", "Handler")
+	tr := trace.New("dnsserver", "Handler")
 	defer tr.Finish()
 
 	tr.LazyPrintf("from:%v   id:%v", w.RemoteAddr(), r.Id)
