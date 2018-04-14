@@ -233,10 +233,6 @@ type query struct {
 	clientSubnet *net.IPNet
 }
 
-func (q query) String() string {
-	return fmt.Sprintf("{%s %d %v %s}", q.name, q.rrType, q.cd, q.clientSubnet)
-}
-
 var (
 	errEmptyName     = fmt.Errorf("empty name")
 	errNameTooLong   = fmt.Errorf("name too long")
@@ -370,9 +366,4 @@ func (s *Server) resolveDoH(tr trace.Trace, w http.ResponseWriter, dnsQuery []by
 	// TODO: set cache-control based on the response.
 	w.WriteHeader(http.StatusOK)
 	w.Write(packed)
-}
-
-func parseContentType(s string) (string, error) {
-	mt, _, err := mime.ParseMediaType(s)
-	return mt, err
 }
