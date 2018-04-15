@@ -7,7 +7,7 @@
 //    This is also implemented by Cloudflare's 1.1.1.1, as documented in:
 //    https://developers.cloudflare.com/1.1.1.1/dns-over-https/json-format/.
 //  - DNS Queries over HTTPS (DoH), as specified in:
-//    https://tools.ietf.org/html/draft-ietf-doh-dns-over-https-05.
+//    https://tools.ietf.org/html/draft-ietf-doh-dns-over-https-07.
 package httpserver
 
 import (
@@ -76,7 +76,7 @@ func (s *Server) Resolve(w http.ResponseWriter, req *http.Request) {
 
 	// Identify DoH requests:
 	//  - GET requests have a "dns=" query parameter.
-	//  - POST requests have a content-type = application/dns-udpwireformat.
+	//  - POST requests have a content-type = application/dns-message.
 	if req.Method == "GET" && req.FormValue("dns") != "" {
 		tr.LazyPrintf("DoH:GET")
 		dnsQuery, err := base64.RawURLEncoding.DecodeString(
@@ -99,7 +99,7 @@ func (s *Server) Resolve(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 
-		if ct == "application/dns-udpwireformat" {
+		if ct == "application/dns-message" {
 			tr.LazyPrintf("DoH:POST")
 			// Limit the size of request to 4k.
 			dnsQuery, err := ioutil.ReadAll(io.LimitReader(req.Body, 4092))
@@ -326,7 +326,7 @@ func stringToBool(s string) (bool, error) {
 }
 
 // Resolve DNS over HTTPS requests, as specified in
-// https://tools.ietf.org/html/draft-ietf-doh-dns-over-https-05.
+// https://tools.ietf.org/html/draft-ietf-doh-dns-over-https-07.
 func (s *Server) resolveDoH(tr trace.Trace, w http.ResponseWriter, dnsQuery []byte) {
 	r := &dns.Msg{}
 	err := r.Unpack(dnsQuery)
@@ -362,7 +362,7 @@ func (s *Server) resolveDoH(tr trace.Trace, w http.ResponseWriter, dnsQuery []by
 	}
 
 	// Write the response back.
-	w.Header().Set("Content-type", "application/dns-udpwireformat")
+	w.Header().Set("Content-type", "application/dns-message")
 	// TODO: set cache-control based on the response.
 	w.WriteHeader(http.StatusOK)
 	w.Write(packed)

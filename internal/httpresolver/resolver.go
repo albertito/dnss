@@ -25,7 +25,7 @@ import (
 // server via DNS over HTTPS.
 //
 // It supports two modes: JSON (like https://dns.google.com) and DoH
-// (https://tools.ietf.org/html/draft-ietf-doh-dns-over-https-05).
+// (https://tools.ietf.org/html/draft-ietf-doh-dns-over-https-07).
 type httpsResolver struct {
 	Upstream *url.URL
 	CAFile   string
@@ -123,7 +123,7 @@ func (r *httpsResolver) queryDoH(req *dns.Msg, tr trace.Trace) (*dns.Msg, error)
 
 	hr, err := r.client.Post(
 		r.Upstream.String(),
-		"application/dns-udpwireformat",
+		"application/dns-message",
 		bytes.NewReader(packed))
 	if err != nil {
 		return nil, fmt.Errorf("POST failed: %v", err)
@@ -141,7 +141,7 @@ func (r *httpsResolver) queryDoH(req *dns.Msg, tr trace.Trace) (*dns.Msg, error)
 		return nil, fmt.Errorf("failed to parse content type: %v", err)
 	}
 
-	if ct != "application/dns-udpwireformat" {
+	if ct != "application/dns-message" {
 		return nil, fmt.Errorf("unknown response content type %q", ct)
 	}
 
