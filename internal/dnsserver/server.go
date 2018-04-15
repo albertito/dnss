@@ -134,6 +134,9 @@ func (s *Server) Handler(w dns.ResponseWriter, r *dns.Msg) {
 		log.Infof("resolver query error: %v", err)
 		tr.LazyPrintf(err.Error())
 		tr.SetError()
+
+		r.Id = oldid
+		dns.HandleFailed(w, r)
 		return
 	}
 

@@ -1,6 +1,7 @@
 package dnsserver
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/miekg/dns"
@@ -45,5 +46,36 @@ func query(t *testing.T, srv, domain, expected string) {
 	result := rr.(*dns.A).A.String()
 	if result != expected {
 		t.Errorf("query %q: expected %q but got %q", domain, expected, result)
+	}
+}
+
+func TestBadUpstreams(t *testing.T) {
+	res := testutil.NewTestResolver()
+	res.RespError = fmt.Errorf("response error for testing")
+
+	// Get addresses but don't start the servers, so we get an error when
+	// trying to reach them.
+	unqUpstreamAddr := testutil.GetFreePort()
+	fallbackAddr := testutil.GetFreePort()
+
+	srv := New(testutil.GetFreePort(), res, unqUpstreamAddr)
+	srv.SetFallback(fallbackAddr, []string{"one.fallback.", "two.fallback."})
+	go srv.ListenAndServe()
+	testutil.WaitForDNSServer(srv.Addr)
+
+	queryFailure(t, srv.Addr, "response.test.")
+	queryFailure(t, srv.Addr, "unqualified.")
+	queryFailure(t, srv.Addr, "one.fallback.")
+	queryFailure(t, srv.Addr, "two.fallback.")
+}
+
+func queryFailure(t *testing.T, srv, domain string) {
+	m, _, err := testutil.DNSQuery(srv, domain, dns.TypeA)
+	if err != nil {
+		t.Errorf("error querying %q: %v", domain, err)
+	}
+
+	if m.Rcode != dns.RcodeServerFailure {
+		t.Errorf("query %q: expected SERVFAIL, got message: %v", domain, m)
 	}
 }
