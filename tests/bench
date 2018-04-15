@@ -8,13 +8,13 @@
 #
 # Examples:
 #   # Run the benchmarks, recording the output IFF the tree is not dirty.
-#   ./tools/bench
+#   ./tests/bench
 #
 #   # Diff between two recorded commits.
-#   ./tools/bench diff 8b25916 HEAD
+#   ./tests/bench diff 8b25916 HEAD
 #
 #   # Run the benchmarks without recording, and compare against a commit.
-#   ./tools/bench rundiff 8b25916
+#   ./tests/bench rundiff 8b25916
 #
 
 set -e
@@ -36,7 +36,7 @@ NO_RECORD=
 
 # Don't record results for a dirty tree.
 # Note this tool is explicitly excluded so we can easily test old commits.
-DIRTY=$(git status --porcelain | grep -v tools/bench | grep -v "^??" | wc -l)
+DIRTY=$(git status --porcelain | grep -v tests/bench | grep -v "^??" | wc -l)
 if [ "$DIRTY" -gt 0 ]; then
 		echo "Dirty tree, not recording results"
 		NO_RECORD=1
