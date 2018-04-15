@@ -143,6 +143,14 @@ func ServeTestDNSServer(addr string, handler func(dns.ResponseWriter, *dns.Msg))
 	panic(err)
 }
 
+func NewRR(tb testing.TB, s string) dns.RR {
+	rr, err := dns.NewRR(s)
+	if err != nil {
+		tb.Fatalf("Error parsing RR for testing: %v", err)
+	}
+	return rr
+}
+
 // TestTrace implements the tracer.Trace interface, but prints using the test
 // logging infrastructure.
 type TestTrace struct {

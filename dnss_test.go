@@ -97,18 +97,13 @@ func resetAnswers() {
 }
 
 func addAnswers(tb testing.TB, zone string) {
-	for x := range dns.ParseZone(strings.NewReader(zone), "", "") {
-		if x.Error != nil {
-			tb.Fatalf("error parsing zone: %v\n", x.Error)
-			return
-		}
+	rr := testutil.NewRR(tb, zone)
+	hdr := rr.Header()
+	key := fmt.Sprintf("%s %d", hdr.Name, hdr.Rrtype)
 
-		hdr := x.RR.Header()
-		key := fmt.Sprintf("%s %d", hdr.Name, hdr.Rrtype)
-		answersMu.Lock()
-		answers[key] = append(answers[key], x.RR)
-		answersMu.Unlock()
-	}
+	answersMu.Lock()
+	answers[key] = append(answers[key], rr)
+	answersMu.Unlock()
 }
 
 func handleTestDNS(w dns.ResponseWriter, r *dns.Msg) {
