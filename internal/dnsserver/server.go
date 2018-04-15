@@ -131,7 +131,7 @@ func (s *Server) Handler(w dns.ResponseWriter, r *dns.Msg) {
 
 	fromUp, err := s.resolver.Query(r, tr)
 	if err != nil {
-		log.Infof(err.Error())
+		log.Infof("resolver query error: %v", err)
 		tr.LazyPrintf(err.Error())
 		tr.SetError()
 		return

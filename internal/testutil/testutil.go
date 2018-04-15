@@ -143,6 +143,19 @@ func ServeTestDNSServer(addr string, handler func(dns.ResponseWriter, *dns.Msg))
 	panic(err)
 }
 
+// MakeStaticHandler for the DNS server. The given answer must be a valid
+// zone.
+func MakeStaticHandler(tb testing.TB, answer string) func(dns.ResponseWriter, *dns.Msg) {
+	rr := NewRR(tb, answer)
+
+	return func(w dns.ResponseWriter, r *dns.Msg) {
+		m := &dns.Msg{}
+		m.SetReply(r)
+		m.Answer = append(m.Answer, rr)
+		w.WriteMsg(m)
+	}
+}
+
 func NewRR(tb testing.TB, s string) dns.RR {
 	rr, err := dns.NewRR(s)
 	if err != nil {
