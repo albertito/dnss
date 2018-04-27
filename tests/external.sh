@@ -125,14 +125,13 @@ kill $PID
 kill $HTTP_PID
 
 
-# TODO: uncomment when 1.1.1.1 supports -07.
-#echo "## DoH against 1.1.1.1"
-#dnss -enable_dns_to_https -dns_listen_addr "localhost:1053" \
-#	-experimental__doh_mode \
-#	-https_upstream "https://1.1.1.1/dns-query"
-#
-#resolve
-#kill $PID
+echo "## DoH against 1.1.1.1"
+dnss -enable_dns_to_https -dns_listen_addr "localhost:1053" \
+	-experimental__doh_mode \
+	-https_upstream "https://1.1.1.1/dns-query"
+
+resolve
+kill $PID
 
 
 echo "## JSON against default (checks default works)"
