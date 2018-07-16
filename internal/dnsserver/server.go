@@ -208,7 +208,7 @@ func (s *Server) systemdServe() {
 		wg.Add(1)
 		go func(c net.PacketConn) {
 			defer wg.Done()
-			log.Infof("Activate on packet connection (UDP)")
+			log.Infof("Activate on packet connection (UDP): %v", c.LocalAddr())
 			err := dns.ActivateAndServe(nil, c, dns.HandlerFunc(s.Handler))
 			log.Fatalf("Exiting UDP listener: %v", err)
 		}(pconn)
@@ -222,7 +222,7 @@ func (s *Server) systemdServe() {
 		wg.Add(1)
 		go func(l net.Listener) {
 			defer wg.Done()
-			log.Infof("Activate on listening socket (TCP)")
+			log.Infof("Activate on listening socket (TCP): %v", l.Addr())
 			err := dns.ActivateAndServe(l, nil, dns.HandlerFunc(s.Handler))
 			log.Fatalf("Exiting TCP listener: %v", err)
 		}(lis)
