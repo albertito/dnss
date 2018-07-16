@@ -4,9 +4,9 @@ language: go
 go_import_path: blitiri.com.ar/go/dnss
 
 go:
-    - 1.7
-    - 1.8
-    - tip
+    - 1.9
+    - stable
+    - master
 
 script:
     - go test ./...
