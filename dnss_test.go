@@ -25,6 +25,9 @@ func TestMain(m *testing.M) {
 	flag.Parse()
 	log.Init()
 	log.Default.Level = log.Error
+
+	// We need to do this early, see TestProxyServerDomain.
+	os.Setenv("HTTPS_PROXY", "http://proxy:1234/p")
 	os.Exit(m.Run())
 }
 
@@ -202,7 +205,9 @@ func BenchmarkSimple(b *testing.B) {
 // for a single case.
 func TestProxyServerDomain(t *testing.T) {
 	*httpsUpstream = "https://montoto/xyz"
-	os.Setenv("HTTPS_PROXY", "http://proxy:1234/p")
+	// In TestMain we set: HTTPS_PROXY=http://proxy:1234/p
+	// We have to do that earlier to prevent other tests from (indirectly)
+	// calling http.ProxyFromEnvironment and have it cache a nil result.
 	if got := proxyServerDomain(); got != "proxy" {
 		t.Errorf("got %q, expected 'proxy'", got)
 	}
