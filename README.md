@@ -6,6 +6,9 @@ dnss is a daemon for using DNS over HTTPS.
 It can act as a "DNS to HTTPS" proxy (the most common use case), and as a "DNS
 over HTTPS" server in case you want end to end control.
 
+[![Build Status](https://travis-ci.org/albertito/dnss.svg?branch=master)](https://travis-ci.org/albertito/dnss)
+[![Go Report Card](https://goreportcard.com/badge/github.com/albertito/dnss)](https://goreportcard.com/report/github.com/albertito/dnss)
+
 
 ## Install
 
