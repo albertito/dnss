@@ -145,7 +145,7 @@ func (r *httpsResolver) queryDoH(req *dns.Msg, tr trace.Trace) (*dns.Msg, error)
 		return nil, fmt.Errorf("unknown response content type %q", ct)
 	}
 
-	respRaw, err := ioutil.ReadAll(io.LimitReader(hr.Body, 4092))
+	respRaw, err := ioutil.ReadAll(io.LimitReader(hr.Body, 64*1024))
 	if err != nil {
 		return nil, fmt.Errorf("error reading from body: %v", err)
 	}
@@ -197,7 +197,7 @@ func (r *httpsResolver) queryJSON(req *dns.Msg, tr trace.Trace) (*dns.Msg, error
 	}
 
 	// Read the HTTPS response, and parse the JSON.
-	body, err := ioutil.ReadAll(hr.Body)
+	body, err := ioutil.ReadAll(io.LimitReader(hr.Body, 64*1024))
 	if err != nil {
 		return nil, fmt.Errorf("Failed to read body: %v", err)
 	}
