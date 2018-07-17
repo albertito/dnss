@@ -1,17 +1,23 @@
 
 # dnss
 
-dnss is a tool for encapsulating DNS over HTTPS.
+dnss is a daemon for using DNS over HTTPS.
+
+It can act as a "DNS to HTTPS" proxy (the most common use case), and as a "DNS
+over HTTPS" server in case you want end to end control.
 
 
-## Quick start
+## Install
 
-If you're using Debian or Ubuntu, `apt install dnss` will install a dnss
-instance already configured in DNS-over-HTTPS mode and using
-https://dns.google.com as a server.
+### Debian/Ubuntu
+
+`$ apt install dnss`
+
+That installs a dnss instance already configured in proxy mode and ready to
+go, using Google's public resolvers (and easily changed via configuration).
 
 
-To do the same manually:
+### Manual install
 
 ```
 # If you have Go installed but no environment prepared, do:
@@ -30,38 +36,14 @@ sudo cp $GOPATH/src/blitiri.com.ar/go/dnss/etc/systemd/dns-to-https/* \
 sudo systemctl dnss enable
 ```
 
+## Supported protocols
 
-## DNS to HTTPS proxy
+dnss supports the following encapsulation protocols, both in proxy and in
+server modes:
 
-dnss can act as a DNS-to-HTTPS proxy, using https://dns.google.com as a
-server, or anything implementing the same API, which is documented at
-https://developers.google.com/speed/public-dns/docs/dns-over-https (note it's
-in beta and subject to changes).
-
-```
-+--------+       +----------------+        +----------------+
-|        |       |     dnss       |        |                |
-| client +-------> (dns-to-https) +--------> dns.google.com |
-|        |  DNS  |                |        |                |
-+--------+  UDP  +----------------+  HTTP  +----------------+
-                                     SSL
-                                     TCP
-```
-
-
-## HTTPS to DNS proxy
-
-dnss can also act as an HTTPS-to-DNS proxy, implementing the HTTP-based API
-documented at
-https://developers.google.com/speed/public-dns/docs/dns-over-https (note it's
-in beta and subject to changes).
-
-You can use this instead of https://dns.google.com if you want more control
-over the servers and the final DNS server used (for example if you are in an
-isolated environment, such as a test lab or a private network).
-
-
-## Alternatives
-
-https://dnscrypt.org/ is a great, more end-to-end alternative to dnss.
+* JSON-based, as implemented by [dns.google.com](https://dns.google.com)
+  ([reference](https://developers.google.com/speed/public-dns/docs/dns-over-https)).
+* [DNS Queries over HTTPS
+  (DoH)](https://tools.ietf.org/html/draft-ietf-doh-dns-over-https) proposed
+  standard (and implemented by [Cloudflare's 1.1.1.1](https://1.1.1.1/)).
 
