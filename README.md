@@ -34,14 +34,14 @@ want end to end control).
 The `dnss` package installs the daemon configured in proxy mode and ready to
 use, using Google's public resolvers (and easily changed via configuration).
 
-```
-$ sudo apt install dnss
+```shell
+sudo apt install dnss
 ```
 
 
 ### Manual install
 
-```
+```shell
 # If you have Go installed but no environment prepared, do:
 mkdir /tmp/dnss; export GOPATH=/tmp/dnss; cd $GOPATH
 
@@ -65,7 +65,7 @@ sudo systemctl dnss enable
 
 Listens on port 53 for DNS queries, resolves them using the given HTTPS URL.
 
-```
+```shell
 # Use the default HTTPS URL (currently, dns.google.com):
 dnss -enable_dns_to_https
 
@@ -85,7 +85,7 @@ the domains you want to serve.
 Supports both DoH and JSON modes automatically, and the endpoints are
 `/dns-query` and `/resolve`.
 
-```
+```shell
 # Serve DNS over HTTPS requests, take certificates from letsencrypt.
 DOMAIN=yourdomain.com
 dnss -enable_https_to_dns \
