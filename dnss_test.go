@@ -45,6 +45,26 @@ func Setup(tb testing.TB, mode string) string {
 	HTTPSToDNSAddr := testutil.GetFreePort()
 	DNSServerAddr := testutil.GetFreePort()
 
+	// HTTPS to DNS server.
+	htod := httpserver.Server{
+		Addr:     HTTPSToDNSAddr,
+		Upstream: DNSServerAddr,
+	}
+	httpserver.InsecureForTesting = true
+	go htod.ListenAndServe()
+
+	// Test DNS server.
+	go testutil.ServeTestDNSServer(DNSServerAddr, handleTestDNS)
+
+	// Wait for the above to start; the DNS to HTTPS server below needs them
+	// up for protocol autodetection.
+	if err := testutil.WaitForHTTPServer(HTTPSToDNSAddr); err != nil {
+		tb.Fatalf("Error waiting for HTTPS to DNS server to start: %v", err)
+	}
+	if err := testutil.WaitForDNSServer(DNSServerAddr); err != nil {
+		tb.Fatalf("Error waiting for testing DNS server to start: %v", err)
+	}
+
 	// DNS to HTTPS server.
 	HTTPSToDNSURL, err := url.Parse("http://" + HTTPSToDNSAddr + "/resolve")
 	if err != nil {
@@ -66,27 +86,8 @@ func Setup(tb testing.TB, mode string) string {
 	dtoh := dnsserver.New(DNSToHTTPSAddr, r, "")
 	go dtoh.ListenAndServe()
 
-	// HTTPS to DNS server.
-	htod := httpserver.Server{
-		Addr:     HTTPSToDNSAddr,
-		Upstream: DNSServerAddr,
-	}
-	httpserver.InsecureForTesting = true
-	go htod.ListenAndServe()
-
-	// Test DNS server.
-	go testutil.ServeTestDNSServer(DNSServerAddr, handleTestDNS)
-
-	// Wait for the servers to start up.
-	err1 := testutil.WaitForDNSServer(DNSToHTTPSAddr)
-	err2 := testutil.WaitForHTTPServer(HTTPSToDNSAddr)
-	err3 := testutil.WaitForDNSServer(DNSServerAddr)
-	if err1 != nil || err2 != nil || err3 != nil {
-		tb.Logf("Error waiting for the test servers to start:\n")
-		tb.Logf("  DNS to HTTPS: %v\n", err1)
-		tb.Logf("  HTTPS to DNS: %v\n", err2)
-		tb.Logf("  DNS server:   %v\n", err3)
-		tb.Fatalf("Check the INFO logs for more details\n")
+	if err := testutil.WaitForDNSServer(DNSToHTTPSAddr); err != nil {
+		tb.Fatalf("Error waiting for DNS to HTTPS server to start: %v", err)
 	}
 
 	return DNSToHTTPSAddr
