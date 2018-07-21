@@ -40,7 +40,7 @@ function dnss() {
 			-test.coverprofile=$COVER_DIR/it-`date +%s.%N`.out"
 	fi
 
-	./dnss $COVER_ARGS \
+	$SYSTEMD_ACTIVATE ./dnss $COVER_ARGS \
 		-v 3 -monitoring_listen_addr :1900 \
 		"$@" > .dnss.log 2>&1 &
 	PID=$!
@@ -186,5 +186,28 @@ get http://localhost:1900/debug/dnsserver/cache/dump
 get http://localhost:1900/debug/dnsserver/cache/flush
 
 kill $PID
+
+
+# systemd socket activation tests must check one protocol at a time, due to
+# systemd-socket-activate not being able to listen on both.
+echo "## Socket activation via systemd: TCP"
+SYSTEMD_ACTIVATE="systemd-socket-activate -l 1053"
+dnss -enable_dns_to_https -dns_listen_addr "systemd"
+
+wait_until_ready tcp 1053
+kdig @127.0.0.1:1053 +tcp  example.com a > .dig.log
+grep -E -q '^example.com.*A'  .dig.log
+
+kill $PID
+
+echo "## Socket activation via systemd: UDP"
+SYSTEMD_ACTIVATE="systemd-socket-activate -d -l 1053"
+dnss -enable_dns_to_https -dns_listen_addr "systemd"
+
+kdig @127.0.0.1:1053 +notcp  example.com a > .dig.log
+grep -E -q '^example.com.*A'  .dig.log
+
+kill $PID
+
 
 echo SUCCESS
