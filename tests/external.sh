@@ -42,7 +42,6 @@ function dnss() {
 
 	./dnss $COVER_ARGS \
 		-v 3 -monitoring_listen_addr :1900 \
-		-testing__insecure_http \
 		"$@" > .dnss.log 2>&1 &
 	PID=$!
 }
@@ -88,14 +87,25 @@ fi
 
 
 echo "## Launching HTTPS server"
-dnss -enable_https_to_dns -https_server_addr "localhost:1999"
+dnss -enable_https_to_dns \
+	-testing__insecure_http -https_server_addr "localhost:1999"
 HTTP_PID=$PID
 mv .dnss.log .dnss.http.log
 
 wait_until_ready tcp 1999
 
+echo "## Autodetect against dnss"
+dnss -enable_dns_to_https -dns_listen_addr "localhost:1053" \
+	-testing__insecure_http \
+	-https_upstream "http://localhost:1999/dns-query"
+
+resolve
+kill $PID
+
 echo "## JSON against dnss"
 dnss -enable_dns_to_https -dns_listen_addr "localhost:1053" \
+	-testing__insecure_http \
+	-force_mode="JSON" \
 	-https_upstream "http://localhost:1999/dns-query"
 
 resolve
@@ -103,7 +113,8 @@ kill $PID
 
 echo "## DoH against dnss"
 dnss -enable_dns_to_https -dns_listen_addr "localhost:1053" \
-	-experimental__doh_mode \
+	-testing__insecure_http \
+	-force_mode="DoH" \
 	-https_upstream "http://localhost:1999/dns-query"
 
 # Exercise DoH via GET (dnss always uses POST).
@@ -125,16 +136,37 @@ kill $PID
 kill $HTTP_PID
 
 
-echo "## DoH against 1.1.1.1"
+echo "## Autodetect against 1.1.1.1"
 dnss -enable_dns_to_https -dns_listen_addr "localhost:1053" \
-	-experimental__doh_mode \
 	-https_upstream "https://1.1.1.1/dns-query"
 
 resolve
 kill $PID
 
+echo "## DoH against 1.1.1.1"
+dnss -enable_dns_to_https -dns_listen_addr "localhost:1053" \
+	-force_mode="DoH" \
+	-https_upstream "https://1.1.1.1/dns-query"
 
-echo "## JSON against default (checks default works)"
+resolve
+kill $PID
+
+echo "## Autodetect against dns.google.com"
+dnss -enable_dns_to_https -dns_listen_addr "localhost:1053" \
+	-https_upstream "https://dns.google.com/resolve"
+
+resolve
+kill $PID
+
+echo "## JSON against dns.google.com"
+dnss -enable_dns_to_https -dns_listen_addr "localhost:1053" \
+	-force_mode="JSON" \
+	-https_upstream "https://dns.google.com/resolve"
+
+resolve
+kill $PID
+
+echo "## Defaults"
 dnss -enable_dns_to_https -dns_listen_addr "localhost:1053"
 
 resolve

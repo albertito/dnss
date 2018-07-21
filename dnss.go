@@ -70,8 +70,8 @@ var (
 	insecureForTesting = flag.Bool("testing__insecure_http", false,
 		"INSECURE, for testing only")
 
-	dohMode = flag.Bool("experimental__doh_mode", false,
-		"DoH mode (experimental)")
+	forceMode = flag.String("force_mode", "",
+		"Force HTTPS resolver mode ('JSON', 'DoH', 'autodetect' (default))")
 
 	// Deprecated flags that no longer make sense; we keep them for backwards
 	// compatibility but may be removed in the future.
@@ -108,10 +108,15 @@ func main() {
 		}
 
 		var resolver dnsserver.Resolver
-		if *dohMode {
+		switch *forceMode {
+		case "DoH":
 			resolver = httpresolver.NewDoH(upstream, *httpsClientCAFile)
-		} else {
+		case "JSON":
 			resolver = httpresolver.NewJSON(upstream, *httpsClientCAFile)
+		case "", "autodetect":
+			resolver = httpresolver.New(upstream, *httpsClientCAFile)
+		default:
+			log.Fatalf("-force_mode=%q is not a valid mode", *forceMode)
 		}
 
 		if *enableCache {

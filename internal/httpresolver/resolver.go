@@ -47,6 +47,17 @@ func loadCertPool(caFile string) (*x509.CertPool, error) {
 	return pool, nil
 }
 
+// New creates a new HTTPS resolver, which uses the given upstream URL to
+// resolve queries. It will auto-detect the mode (JSON or DoH) by doing a
+// resolution at initialization time.
+func New(upstream *url.URL, caFile string) *httpsResolver {
+	return &httpsResolver{
+		Upstream: upstream,
+		CAFile:   caFile,
+		mode:     "autodetect",
+	}
+}
+
 // NewJSON creates a new JSON resolver which uses the given upstream URL to
 // resolve queries.
 func NewJSON(upstream *url.URL, caFile string) *httpsResolver {
@@ -83,20 +94,41 @@ func (r *httpsResolver) Init() error {
 
 	// If CAFile is empty, we're ok with the defaults (use the system default
 	// CA database).
-	if r.CAFile == "" {
-		return nil
+	if r.CAFile != "" {
+		pool, err := loadCertPool(r.CAFile)
+		if err != nil {
+			return err
+		}
+
+		transport.TLSClientConfig = &tls.Config{
+			ClientCAs: pool,
+		}
 	}
 
-	pool, err := loadCertPool(r.CAFile)
-	if err != nil {
-		return err
-	}
-
-	transport.TLSClientConfig = &tls.Config{
-		ClientCAs: pool,
+	if r.mode == "autodetect" {
+		if err := r.autodetect(); err != nil {
+			return err
+		}
 	}
 
 	return nil
+}
+
+func (r *httpsResolver) autodetect() error {
+	tr := trace.New("httpsresolver", "Autodetect")
+	defer tr.Finish()
+
+	m := &dns.Msg{}
+	m.SetQuestion("example.com.", dns.TypeA)
+
+	for _, mode := range []string{"DoH", "JSON"} {
+		r.mode = mode
+		if _, err := r.Query(m, tr); err == nil {
+			return nil
+		}
+	}
+
+	return fmt.Errorf("Failed to autodetect resolver mode")
 }
 
 func (r *httpsResolver) Maintain() {

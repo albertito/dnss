@@ -52,11 +52,17 @@ func Setup(tb testing.TB, mode string) string {
 	}
 
 	var r dnsserver.Resolver
-	if mode == "DoH" {
+	switch mode {
+	case "DoH":
 		r = httpresolver.NewDoH(HTTPSToDNSURL, "")
-	} else {
+	case "JSON":
 		r = httpresolver.NewJSON(HTTPSToDNSURL, "")
+	case "autodetect":
+		r = httpresolver.New(HTTPSToDNSURL, "")
+	default:
+		tb.Fatalf("%q is not a valid mode", mode)
 	}
+
 	dtoh := dnsserver.New(DNSToHTTPSAddr, r, "")
 	go dtoh.ListenAndServe()
 
@@ -144,6 +150,7 @@ func handleTestDNS(w dns.ResponseWriter, r *dns.Msg) {
 func TestEndToEnd(t *testing.T) {
 	t.Run("mode=JSON", func(t *testing.T) { testEndToEnd(t, "JSON") })
 	t.Run("mode=DoH", func(t *testing.T) { testEndToEnd(t, "DoH") })
+	t.Run("mode=autodetect", func(t *testing.T) { testEndToEnd(t, "autodetect") })
 }
 
 func testEndToEnd(t *testing.T, mode string) {
