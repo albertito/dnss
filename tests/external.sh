@@ -109,6 +109,15 @@ dnss -enable_dns_to_https -dns_listen_addr "localhost:1053" \
 	-https_upstream "http://localhost:1999/dns-query"
 
 resolve
+
+# Exercise some interesting JSON requests.
+get "http://localhost:1999/dns-query?name=test&edns_client_subnet=1.2.3.4/24"
+get "http://localhost:1999/dns-query?name=test&edns_client_subnet=2001:700:300::/48"
+if get "http://localhost:1999/dns-query?name=test&type=lalala"; then
+	echo "GET with invalid query did not fail"
+	exit 1
+fi
+
 kill $PID
 
 echo "## DoH against dnss"
