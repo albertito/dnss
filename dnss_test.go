@@ -26,8 +26,6 @@ func TestMain(m *testing.M) {
 	log.Init()
 	log.Default.Level = log.Error
 
-	// We need to do this early, see TestProxyServerDomain.
-	os.Setenv("HTTPS_PROXY", "http://proxy:1234/p")
 	os.Exit(m.Run())
 }
 
@@ -200,37 +198,38 @@ func BenchmarkSimple(b *testing.B) {
 /////////////////////////////////////////////////////////////////////
 // Tests for main-specific helpers
 
-// Test proxyServerDomain(). Unfortunately, this function can only be called
-// once, as the results of http.ProxyFromEnvironment are cached, so we test it
-// for a single case.
 func TestProxyServerDomain(t *testing.T) {
+	prevProxy, wasSet := os.LookupEnv("HTTPS_PROXY")
+
+	// Valid case, proxy set.
+	os.Setenv("HTTPS_PROXY", "http://proxy:1234/p")
 	*httpsUpstream = "https://montoto/xyz"
-	// In TestMain we set: HTTPS_PROXY=http://proxy:1234/p
-	// We have to do that earlier to prevent other tests from (indirectly)
-	// calling http.ProxyFromEnvironment and have it cache a nil result.
 	if got := proxyServerDomain(); got != "proxy" {
 		t.Errorf("got %q, expected 'proxy'", got)
 	}
-}
 
-func TestExtractHostname(t *testing.T) {
-	cases := []struct{ host, expected string }{
-		{"host", "host"},
-		{"host:1234", "host"},
-		{"[host]", "host"},
-		{"[host]:1234", "host"},
-		{"1.2.3.4", "1.2.3.4"},
-		{"1.2.3.4:1234", "1.2.3.4"},
-		{"[::192.9.5.5]", "::192.9.5.5"},
-		{"[::192.9.5.5]:1234", "::192.9.5.5"},
-		{"[3ffe:2a00:100:7031::1]", "3ffe:2a00:100:7031::1"},
-		{"[3ffe:2a00:100:7031::1]:1234", "3ffe:2a00:100:7031::1"},
+	// Valid case, proxy not set.
+	os.Unsetenv("HTTPS_PROXY")
+	*httpsUpstream = "https://montoto/xyz"
+	if got := proxyServerDomain(); got != "" {
+		t.Errorf("got %q, expected ''", got)
 	}
-	for _, c := range cases {
-		if got := extractHostname(c.host); got != c.expected {
-			t.Errorf("extractHostname(%q) = %q ; expected %q",
-				c.host, got, c.expected)
-		}
+
+	// Invalid upstream URL.
+	*httpsUpstream = "in%20valid:url"
+	if got := proxyServerDomain(); got != "" {
+		t.Errorf("got %q, expected ''", got)
+	}
+
+	// Invalid proxy.
+	os.Setenv("HTTPS_PROXY", "invalid value")
+	*httpsUpstream = "https://montoto/xyz"
+	if got := proxyServerDomain(); got != "" {
+		t.Errorf("got %q, expected ''", got)
+	}
+
+	if wasSet {
+		os.Setenv("HTTPS_PROXY", prevProxy)
 	}
 }
 

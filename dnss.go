@@ -19,6 +19,8 @@ import (
 	"strings"
 	"sync"
 
+	"golang.org/x/net/http/httpproxy"
+
 	"blitiri.com.ar/go/dnss/internal/dnsserver"
 	"blitiri.com.ar/go/dnss/internal/httpresolver"
 	"blitiri.com.ar/go/dnss/internal/httpserver"
@@ -156,39 +158,18 @@ func main() {
 // proxyServerDomain checks if we're using an HTTP proxy server, and if so
 // returns its domain.
 func proxyServerDomain() string {
-	req, err := http.NewRequest("GET", *httpsUpstream, nil)
+	url, err := url.Parse(*httpsUpstream)
 	if err != nil {
 		return ""
 	}
 
-	url, err := http.ProxyFromEnvironment(req)
-	if err != nil || url == nil {
+	proxyFunc := httpproxy.FromEnvironment().ProxyFunc()
+	proxyURL, err := proxyFunc(url)
+	if err != nil || proxyURL == nil {
 		return ""
 	}
 
-	return extractHostname(url.Host)
-}
-
-// extractHostname from an URL host, which can be in the form "host" or
-// "host:port".
-// TODO: Use url.Hostname() instead of this, once we drop support for Go 1.7
-// (the function was added in 1.8).
-func extractHostname(host string) string {
-	// IPv6 URLs have the address between brackets.
-	// http://www.ietf.org/rfc/rfc2732.txt
-	if i := strings.Index(host, "]"); i != -1 {
-		return strings.TrimPrefix(host[:i], "[")
-	}
-
-	// IPv4 or host URL, we can just drop everything after the ":" (if
-	// present).
-	if i := strings.Index(host, ":"); i != -1 {
-		return host[:i]
-	}
-
-	// Port is not specified.
-	return host
-
+	return proxyURL.Hostname()
 }
 
 func launchMonitoringServer(addr string) {
