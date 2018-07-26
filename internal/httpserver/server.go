@@ -7,7 +7,7 @@
 //    This is also implemented by Cloudflare's 1.1.1.1, as documented in:
 //    https://developers.cloudflare.com/1.1.1.1/dns-over-https/json-format/.
 //  - DNS Queries over HTTPS (DoH), as specified in:
-//    https://tools.ietf.org/html/draft-ietf-doh-dns-over-https-07.
+//    https://tools.ietf.org/html/draft-ietf-doh-dns-over-https-12.
 package httpserver
 
 import (
@@ -326,7 +326,7 @@ func stringToBool(s string) (bool, error) {
 }
 
 // Resolve DNS over HTTPS requests, as specified in
-// https://tools.ietf.org/html/draft-ietf-doh-dns-over-https-07.
+// https://tools.ietf.org/html/draft-ietf-doh-dns-over-https-12.
 func (s *Server) resolveDoH(tr trace.Trace, w http.ResponseWriter, dnsQuery []byte) {
 	r := &dns.Msg{}
 	err := r.Unpack(dnsQuery)
