@@ -61,13 +61,25 @@ function resolve() {
 	wait_until_ready tcp 1053
 
 	kdig @127.0.0.1:1053 +tcp  example.com a > .dig.log
-	grep -E -q '^example.com.*A'  .dig.log
+	if ! grep -E -i -q '^example.com.*A'  .dig.log; then
+		echo "----- FAILED"
+		cat .dig.log
+		false
+	fi
 
 	kdig @127.0.0.1:1053 +notcp  example.com a > .dig.log
-	grep -E -q '^example.com.*A'  .dig.log
+	if ! grep -E -i -q '^example.com.*A'  .dig.log; then
+		echo "----- FAILED"
+		cat .dig.log
+		false
+	fi
 
 	kdig @127.0.0.1:1053 +notcp  com.ar NS > .dig.log
-	grep -E -q '^com.ar.*NS'  .dig.log
+	if ! grep -E -i -q '^com.ar.*NS'  .dig.log; then
+		echo "----- FAILED"
+		cat .dig.log
+		false
+	fi
 }
 
 # HTTP GET, using wget.
@@ -145,21 +157,6 @@ kill $PID
 kill $HTTP_PID
 
 
-echo "## Autodetect against 1.1.1.1"
-dnss -enable_dns_to_https -dns_listen_addr "localhost:1053" \
-	-https_upstream "https://1.1.1.1/dns-query"
-
-resolve
-kill $PID
-
-echo "## DoH against 1.1.1.1"
-dnss -enable_dns_to_https -dns_listen_addr "localhost:1053" \
-	-force_mode="DoH" \
-	-https_upstream "https://1.1.1.1/dns-query"
-
-resolve
-kill $PID
-
 echo "## Autodetect against dns.google.com"
 dnss -enable_dns_to_https -dns_listen_addr "localhost:1053" \
 	-https_upstream "https://dns.google.com/resolve"
@@ -174,6 +171,36 @@ dnss -enable_dns_to_https -dns_listen_addr "localhost:1053" \
 
 resolve
 kill $PID
+
+
+# DoH integration test against some publicly available servers.
+# https://github.com/curl/curl/wiki/DNS-over-HTTPS#publicly-available-servers
+# Note not all of the ones in the list are actually functional.
+for server in \
+	"https://1.1.1.1/dns-query" \
+	"https://cloudflare-dns.com/dns-query" \
+	"https://dns.google.com/experimental" \
+	"https://dns.quad9.net/dns-query" \
+	"https://doh.cleanbrowsing.org/doh/family-filter/" \
+	"https://doh.powerdns.org" \
+	"https://doh.crypto.sx/dns-query" \
+	"https://doh.securedns.eu/dns-query" \
+	;
+do
+	echo "## DoH against $server"
+	dnss -enable_dns_to_https -dns_listen_addr "localhost:1053" \
+		-force_mode="DoH" \
+		-https_upstream "$server"
+	resolve
+	kill $PID
+
+	echo "## Autodetect against $server"
+	dnss -enable_dns_to_https -dns_listen_addr "localhost:1053" \
+		-https_upstream "$server"
+	resolve
+	kill $PID
+done
+
 
 echo "## Defaults"
 dnss -enable_dns_to_https -dns_listen_addr "localhost:1053"
