@@ -86,7 +86,7 @@ function resolve() {
 function get() {
 	URL=$1
 
-	wget -O/dev/null $URL > .wget.log 2>&1
+	wget -O.wget.out $URL > .wget.log 2>&1
 }
 
 echo "## Misc"
@@ -105,6 +105,16 @@ HTTP_PID=$PID
 mv .dnss.log .dnss.http.log
 
 wait_until_ready tcp 1999
+
+echo "## Checking /debug/flags"
+if ! get "http://localhost:1900/debug/flags"; then
+	echo "Failed to get /debug/flags"
+	exit 1
+fi
+if ! grep -q "testing__insecure_http=true" .wget.out; then
+	echo "/debug/flags did not contain expected flags (see .wget.out)"
+	exit 1
+fi
 
 echo "## Autodetect against dnss"
 dnss -enable_dns_to_https -dns_listen_addr "localhost:1053" \

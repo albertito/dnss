@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"strings"
 	"sync"
 	"testing"
 
@@ -238,16 +237,6 @@ func TestProxyServerDomain(t *testing.T) {
 
 	if wasSet {
 		os.Setenv("HTTPS_PROXY", prevProxy)
-	}
-}
-
-func TestDumpFlags(t *testing.T) {
-	flag.Parse()
-	flag.Set("https_upstream", "https://montoto/xyz")
-
-	f := dumpFlags()
-	if !strings.Contains(f, "-https_upstream=https://montoto/xyz\n") {
-		t.Errorf("Flags string missing canary value: %v", f)
 	}
 }
 
