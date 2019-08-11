@@ -4,10 +4,8 @@
 #
 # The goal is to test how dnss interacts with publicly available services.
 #
-# These tests use the network and public internet to talk to:
-# - the machine's configured DNS server
-# - dns.google.com
-# - 1.1.1.1.
+# These tests use the network and public internet to talk to the machine's
+# configured DNS server, and various public resolvers.
 #
 # So the tests are not hermetic and could fail for external reasons.
 
@@ -189,7 +187,7 @@ kill $PID
 for server in \
 	"https://1.1.1.1/dns-query" \
 	"https://cloudflare-dns.com/dns-query" \
-	"https://dns.google.com/experimental" \
+	"https://dns.google/dns-query" \
 	"https://dns.quad9.net/dns-query" \
 	"https://doh.cleanbrowsing.org/doh/family-filter/" \
 	"https://doh.powerdns.org" \
