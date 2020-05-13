@@ -191,7 +191,6 @@ for server in \
 	"https://dns.quad9.net/dns-query" \
 	"https://doh.cleanbrowsing.org/doh/family-filter/" \
 	"https://doh.powerdns.org" \
-	"https://doh.securedns.eu/dns-query" \
 	;
 do
 	echo "## DoH against $server"
