@@ -165,17 +165,17 @@ kill $PID
 kill $HTTP_PID
 
 
-echo "## Autodetect against dns.google.com"
+echo "## Autodetect against dns.google/resolve (JSON)"
 dnss -enable_dns_to_https -dns_listen_addr "localhost:1053" \
-	-https_upstream "https://dns.google.com/resolve"
+	-https_upstream "https://dns.google/resolve"
 
 resolve
 kill $PID
 
-echo "## JSON against dns.google.com"
+echo "## JSON against dns.google/resolve"
 dnss -enable_dns_to_https -dns_listen_addr "localhost:1053" \
 	-force_mode="JSON" \
-	-https_upstream "https://dns.google.com/resolve"
+	-https_upstream "https://dns.google/resolve"
 
 resolve
 kill $PID

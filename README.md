@@ -14,7 +14,7 @@ want end to end control).
 ## Features
 
 * Supports the JSON-based protocol as implemented by
-  [dns.google.com](https://dns.google.com)
+  [dns.google](https://dns.google)
   ([reference](https://developers.google.com/speed/public-dns/docs/dns-over-https)).
 * Supports the [DNS Queries over HTTPS
   (DoH)](https://tools.ietf.org/html/draft-ietf-doh-dns-over-https) proposed
@@ -68,14 +68,14 @@ sudo systemctl dnss enable
 Listens on port 53 for DNS queries, resolves them using the given HTTPS URL.
 
 ```shell
-# Use the default HTTPS URL (currently, dns.google.com):
+# Use the default HTTPS URL (currently, dns.google):
 dnss -enable_dns_to_https
 
 # Use Cloudflare's 1.1.1.1:
 dnss -enable_dns_to_https -https_upstream="https://1.1.1.1/dns-query"
 
-# Use Google's dns.google.com:
-dnss -enable_dns_to_https -https_upstream="https://dns.google.com/resolve"
+# Use Google's dns.google:
+dnss -enable_dns_to_https -https_upstream="https://dns.google/dns-query"
 ```
 
 ### HTTPS server

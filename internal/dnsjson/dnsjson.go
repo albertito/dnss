@@ -1,6 +1,6 @@
 // Package dnsjson contains structures for representing DNS responses as JSON.
 //
-// Matches the API implemented by https://dns.google.com/.
+// Matches the API implemented by https://dns.google/.
 package dnsjson
 
 // Response is the highest level struct in the DNS JSON response.

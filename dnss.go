@@ -1,12 +1,12 @@
 // dnss is a tool for encapsulating DNS over HTTPS.
 //
-// It can act as a DNS-to-HTTPS proxy, using dns.google.com as a server, or
-// anything implementing the same API.
+// It can act as a DNS-to-HTTPS proxy, exposing a traditional DNS server and
+// resolving queries using any DNS-over-HTTP (DoH) server.
 //
-// It can also act as an HTTPS-to-DNS proxy, so you can use it instead of
-// dns.google.com if you want more control over the servers and the final DNS
-// server used (for example if you are in an isolated environment, such as a
-// test lab or a private network).
+// It can also act as an HTTPS-to-DNS proxy, so you can use it as a DoH server
+// if you want more control over the servers and the final DNS server used
+// (for example if you are in an isolated environment, such as a test lab or a
+// private network).
 //
 // See the README.md file for more details.
 package main
@@ -39,14 +39,14 @@ var (
 
 	fallbackUpstream = flag.String("fallback_upstream", "8.8.8.8:53",
 		"DNS server to resolve domains in --fallback_domains")
-	fallbackDomains = flag.String("fallback_domains", "dns.google.com.",
+	fallbackDomains = flag.String("fallback_domains", "dns.google.",
 		"Domains we resolve via DNS, using --fallback_upstream"+
 			" (space-separated list)")
 
 	enableDNStoHTTPS = flag.Bool("enable_dns_to_https", false,
 		"enable DNS-to-HTTPS proxy")
 	httpsUpstream = flag.String("https_upstream",
-		"https://dns.google.com/resolve",
+		"https://dns.google/dns-query",
 		"URL of upstream DNS-to-HTTP server")
 	httpsClientCAFile = flag.String("https_client_cafile", "",
 		"CA file to use for the HTTPS client")
