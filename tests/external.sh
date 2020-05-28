@@ -237,6 +237,7 @@ echo "## Socket activation via systemd: UDP"
 SYSTEMD_ACTIVATE="systemd-socket-activate -d -l 1053"
 dnss -enable_dns_to_https -dns_listen_addr "systemd"
 
+sleep 0.2
 kdig @127.0.0.1:1053 +notcp  example.com a > .dig.log
 grep -E -q '^example.com.*A'  .dig.log
 
