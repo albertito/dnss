@@ -10,12 +10,12 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/coreos/go-systemd/activation"
 	"github.com/miekg/dns"
 	"golang.org/x/net/trace"
 
 	"blitiri.com.ar/go/dnss/internal/util"
 	"blitiri.com.ar/go/log"
+	"blitiri.com.ar/go/systemd"
 )
 
 // newID is a channel used to generate new request IDs.
@@ -184,17 +184,24 @@ func (s *Server) classicServe() {
 }
 
 func (s *Server) systemdServe() {
+	fsMap, err := systemd.Files()
+	if err != nil {
+		log.Fatalf("Error getting systemd listeners: %v", err)
+	}
+
 	// We will usually have at least one TCP socket and one UDP socket.
 	// PacketConns are UDP sockets, Listeners are TCP sockets.
 	pconns := []net.PacketConn{}
 	listeners := []net.Listener{}
-	for _, f := range activation.Files(true) {
-		if lis, err := net.FileListener(f); err == nil {
-			listeners = append(listeners, lis)
-			f.Close()
-		} else if pc, err := net.FilePacketConn(f); err == nil {
-			pconns = append(pconns, pc)
-			f.Close()
+	for _, fs := range fsMap {
+		for _, f := range fs {
+			if lis, err := net.FileListener(f); err == nil {
+				listeners = append(listeners, lis)
+				f.Close()
+			} else if pc, err := net.FilePacketConn(f); err == nil {
+				pconns = append(pconns, pc)
+				f.Close()
+			}
 		}
 	}
 
