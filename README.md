@@ -13,12 +13,12 @@ want end to end control).
 
 ## Features
 
-* Supports the JSON-based protocol as implemented by
+* Supports the
+  [DNS Queries over HTTPS (DoH)](https://en.wikipedia.org/wiki/DNS_over_HTTPS)
+  standard ([RFC 8484](https://tools.ietf.org/html/rfc8484).
+* Supports the older JSON-based protocol as implemented by
   [dns.google](https://dns.google)
   ([reference](https://developers.google.com/speed/public-dns/docs/dns-over-https)).
-* Supports the [DNS Queries over HTTPS
-  (DoH)](https://tools.ietf.org/html/draft-ietf-doh-dns-over-https) proposed
-  standard (and implemented by [Cloudflare's 1.1.1.1](https://1.1.1.1/)).
 * Local cache (optional).
 * HTTP(s) proxy support, autodetected from the environment.
 * Monitoring HTTP server, with exported variables and tracing to help

@@ -25,7 +25,7 @@ import (
 // server via DNS over HTTPS.
 //
 // It supports two modes: JSON (like https://dns.google) and DoH
-// (https://tools.ietf.org/html/draft-ietf-doh-dns-over-https-12).
+// (https://en.wikipedia.org/wiki/DNS_over_HTTPS, RFC 8484).
 type httpsResolver struct {
 	Upstream *url.URL
 	CAFile   string
