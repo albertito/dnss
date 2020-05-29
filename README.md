@@ -3,8 +3,11 @@
 
 dnss is a daemon for using DNS over HTTPS.
 
-It can act as a proxy (the most common use case), and as a server (in case you
-want end to end control).
+It can act as a proxy, receiving DNS requests and resolving them using
+DNS-over-HTTPs (DoH). This can be useful to improve DNS security and privacy
+on laptops and small/home networks.
+
+It can also act as a DoH server, in case you want end to end control.
 
 
 [![Build Status](https://travis-ci.org/albertito/dnss.svg?branch=master)](https://travis-ci.org/albertito/dnss)
@@ -15,7 +18,7 @@ want end to end control).
 
 * Supports the
   [DNS Queries over HTTPS (DoH)](https://en.wikipedia.org/wiki/DNS_over_HTTPS)
-  standard ([RFC 8484](https://tools.ietf.org/html/rfc8484).
+  standard ([RFC 8484](https://tools.ietf.org/html/rfc8484)).
 * Supports the older JSON-based protocol as implemented by
   [dns.google](https://dns.google)
   ([reference](https://developers.google.com/speed/public-dns/docs/dns-over-https)).
