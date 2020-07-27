@@ -48,8 +48,8 @@ func Setup(tb testing.TB, mode string) string {
 	htod := httpserver.Server{
 		Addr:     HTTPSToDNSAddr,
 		Upstream: DNSServerAddr,
+		Insecure: true,
 	}
-	httpserver.InsecureForTesting = true
 	go htod.ListenAndServe()
 
 	// Test DNS server.

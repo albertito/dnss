@@ -98,7 +98,7 @@ fi
 
 echo "## Launching HTTPS server"
 dnss -enable_https_to_dns \
-	-testing__insecure_http -https_server_addr "localhost:1999"
+	-insecure_http_server -https_server_addr "localhost:1999"
 HTTP_PID=$PID
 mv .dnss.log .dnss.http.log
 
@@ -109,14 +109,14 @@ if ! get "http://localhost:1900/debug/flags"; then
 	echo "Failed to get /debug/flags"
 	exit 1
 fi
-if ! grep -q "testing__insecure_http=true" .wget.out; then
+if ! grep -q "insecure_http_server=true" .wget.out; then
 	echo "/debug/flags did not contain expected flags (see .wget.out)"
 	exit 1
 fi
 
 echo "## Autodetect against dnss"
 dnss -enable_dns_to_https -dns_listen_addr "localhost:1053" \
-	-testing__insecure_http \
+	-insecure_http_server \
 	-https_upstream "http://localhost:1999/dns-query"
 
 resolve
@@ -124,7 +124,7 @@ kill $PID
 
 echo "## JSON against dnss"
 dnss -enable_dns_to_https -dns_listen_addr "localhost:1053" \
-	-testing__insecure_http \
+	-insecure_http_server \
 	-force_mode="JSON" \
 	-https_upstream "http://localhost:1999/dns-query"
 
@@ -142,7 +142,7 @@ kill $PID
 
 echo "## DoH against dnss"
 dnss -enable_dns_to_https -dns_listen_addr "localhost:1053" \
-	-testing__insecure_http \
+	-insecure_http_server \
 	-force_mode="DoH" \
 	-https_upstream "http://localhost:1999/dns-query"
 

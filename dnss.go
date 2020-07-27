@@ -63,12 +63,11 @@ var (
 		"key to use for the HTTPS server")
 	httpsAddr = flag.String("https_server_addr", ":443",
 		"address to listen on for HTTPS-to-DNS requests")
+	insecureHTTPServer = flag.Bool("insecure_http_server", false,
+		"listen on plain HTTP, not HTTPS")
 
 	monitoringListenAddr = flag.String("monitoring_listen_addr", "",
 		"address to listen on for monitoring HTTP requests")
-
-	insecureForTesting = flag.Bool("testing__insecure_http", false,
-		"INSECURE, for testing only")
 
 	forceMode = flag.String("force_mode", "",
 		"Force HTTPS resolver mode ('JSON', 'DoH', 'autodetect' (default))")
@@ -92,10 +91,6 @@ func main() {
 		log.Errorf("  --enable_dns_to_https")
 		log.Errorf("  --enable_https_to_dns")
 		log.Fatalf("")
-	}
-
-	if *insecureForTesting {
-		httpserver.InsecureForTesting = true
 	}
 
 	var wg sync.WaitGroup
@@ -149,7 +144,9 @@ func main() {
 			Upstream: *dnsUpstream,
 			CertFile: *httpsCertFile,
 			KeyFile:  *httpsKeyFile,
+			Insecure: *insecureHTTPServer,
 		}
+
 		wg.Add(1)
 		go func() {
 			defer wg.Done()

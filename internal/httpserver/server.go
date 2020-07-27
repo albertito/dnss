@@ -37,11 +37,8 @@ type Server struct {
 	Upstream string
 	CertFile string
 	KeyFile  string
+	Insecure bool
 }
-
-// InsecureForTesting = true will make Server.ListenAndServe will not use TLS.
-// This is only useful for integration testing purposes.
-var InsecureForTesting = false
 
 // ListenAndServe starts the HTTPS server.
 func (s *Server) ListenAndServe() {
@@ -55,7 +52,7 @@ func (s *Server) ListenAndServe() {
 
 	log.Infof("HTTPS listening on %s", s.Addr)
 	var err error
-	if InsecureForTesting {
+	if s.Insecure {
 		err = srv.ListenAndServe()
 	} else {
 		err = srv.ListenAndServeTLS(s.CertFile, s.KeyFile)
