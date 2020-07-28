@@ -87,6 +87,16 @@ function get() {
 	wget -O.wget.out $URL > .wget.log 2>&1
 }
 
+function generate_certs() {
+	mkdir -p .certs/localhost
+	(
+		cd .certs/localhost
+		go run ../../tests/generate_cert.go \
+			-ca -duration=1h --host=localhost
+	)
+}
+
+
 echo "## Misc"
 # Missing arguments (expect it to fail).
 dnss
@@ -134,6 +144,26 @@ fi
 resolve
 kill $PID
 
+kill $HTTP_PID
+
+
+echo "## HTTPS with custom certificates"
+generate_certs
+dnss -enable_https_to_dns \
+	-https_key .certs/localhost/privkey.pem \
+	-https_cert .certs/localhost/fullchain.pem \
+	-https_server_addr "localhost:1999"
+HTTP_PID=$PID
+mv .dnss.log .dnss.http.log
+wait_until_ready tcp 1999
+
+dnss -enable_dns_to_https -dns_listen_addr "localhost:1053" \
+	-https_client_cafile .certs/localhost/fullchain.pem \
+	-https_upstream "https://localhost:1999/dns-query"
+
+resolve
+
+kill $PID
 kill $HTTP_PID
 
 

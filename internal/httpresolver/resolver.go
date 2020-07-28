@@ -73,7 +73,7 @@ func (r *httpsResolver) Init() error {
 		}
 
 		transport.TLSClientConfig = &tls.Config{
-			ClientCAs: pool,
+			RootCAs: pool,
 		}
 	}
 
