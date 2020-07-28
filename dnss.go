@@ -69,13 +69,11 @@ var (
 	monitoringListenAddr = flag.String("monitoring_listen_addr", "",
 		"address to listen on for monitoring HTTP requests")
 
-	forceMode = flag.String("force_mode", "",
-		"Force HTTPS resolver mode ('JSON', 'DoH', 'autodetect' (default))")
-
 	// Deprecated flags that no longer make sense; we keep them for backwards
 	// compatibility but may be removed in the future.
 	_ = flag.Duration("log_flush_every", 0, "deprecated, will be removed")
 	_ = flag.Bool("logtostderr", false, "deprecated, will be removed")
+	_ = flag.String("force_mode", "", "deprecated, will be removed")
 )
 
 func main() {
@@ -103,16 +101,7 @@ func main() {
 		}
 
 		var resolver dnsserver.Resolver
-		switch *forceMode {
-		case "DoH":
-			resolver = httpresolver.NewDoH(upstream, *httpsClientCAFile)
-		case "JSON":
-			resolver = httpresolver.NewJSON(upstream, *httpsClientCAFile)
-		case "", "autodetect":
-			resolver = httpresolver.New(upstream, *httpsClientCAFile)
-		default:
-			log.Fatalf("-force_mode=%q is not a valid mode", *forceMode)
-		}
+		resolver = httpresolver.NewDoH(upstream, *httpsClientCAFile)
 
 		if *enableCache {
 			cr := dnsserver.NewCachingResolver(resolver)

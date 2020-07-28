@@ -39,7 +39,7 @@ func TestMain(m *testing.M) {
 // responses as needed.
 //
 // Returns the address of the DNS-to-HTTPS server, for the tests to use.
-func Setup(tb testing.TB, mode string) string {
+func Setup(tb testing.TB) string {
 	DNSToHTTPSAddr := testutil.GetFreePort()
 	HTTPSToDNSAddr := testutil.GetFreePort()
 	DNSServerAddr := testutil.GetFreePort()
@@ -55,38 +55,24 @@ func Setup(tb testing.TB, mode string) string {
 	// Test DNS server.
 	go testutil.ServeTestDNSServer(DNSServerAddr, handleTestDNS)
 
-	// Wait for the above to start; the DNS to HTTPS server below needs them
-	// up for protocol autodetection.
-	if err := testutil.WaitForHTTPServer(HTTPSToDNSAddr); err != nil {
-		tb.Fatalf("Error waiting for HTTPS to DNS server to start: %v", err)
-	}
-	if err := testutil.WaitForDNSServer(DNSServerAddr); err != nil {
-		tb.Fatalf("Error waiting for testing DNS server to start: %v", err)
-	}
-
 	// DNS to HTTPS server.
 	HTTPSToDNSURL, err := url.Parse("http://" + HTTPSToDNSAddr + "/resolve")
 	if err != nil {
 		tb.Fatalf("invalid URL: %v", err)
 	}
 
-	var r dnsserver.Resolver
-	switch mode {
-	case "DoH":
-		r = httpresolver.NewDoH(HTTPSToDNSURL, "")
-	case "JSON":
-		r = httpresolver.NewJSON(HTTPSToDNSURL, "")
-	case "autodetect":
-		r = httpresolver.New(HTTPSToDNSURL, "")
-	default:
-		tb.Fatalf("%q is not a valid mode", mode)
-	}
-
+	r := httpresolver.NewDoH(HTTPSToDNSURL, "")
 	dtoh := dnsserver.New(DNSToHTTPSAddr, r, "")
 	go dtoh.ListenAndServe()
 
 	if err := testutil.WaitForDNSServer(DNSToHTTPSAddr); err != nil {
 		tb.Fatalf("Error waiting for DNS to HTTPS server to start: %v", err)
+	}
+	if err := testutil.WaitForHTTPServer(HTTPSToDNSAddr); err != nil {
+		tb.Fatalf("Error waiting for HTTPS to DNS server to start: %v", err)
+	}
+	if err := testutil.WaitForDNSServer(DNSServerAddr); err != nil {
+		tb.Fatalf("Error waiting for testing DNS server to start: %v", err)
 	}
 
 	return DNSToHTTPSAddr
@@ -148,13 +134,7 @@ func handleTestDNS(w dns.ResponseWriter, r *dns.Msg) {
 //
 
 func TestEndToEnd(t *testing.T) {
-	t.Run("mode=JSON", func(t *testing.T) { testEndToEnd(t, "JSON") })
-	t.Run("mode=DoH", func(t *testing.T) { testEndToEnd(t, "DoH") })
-	t.Run("mode=autodetect", func(t *testing.T) { testEndToEnd(t, "autodetect") })
-}
-
-func testEndToEnd(t *testing.T, mode string) {
-	ServerAddr := Setup(t, mode)
+	ServerAddr := Setup(t)
 	resetAnswers()
 	addAnswers(t, "test.blah. 3600 A 1.2.3.4")
 	_, ans, err := testutil.DNSQuery(ServerAddr, "test.blah.", dns.TypeA)
@@ -188,7 +168,7 @@ func testEndToEnd(t *testing.T, mode string) {
 //
 
 func BenchmarkSimple(b *testing.B) {
-	ServerAddr := Setup(b, "DoH")
+	ServerAddr := Setup(b)
 	resetAnswers()
 	addAnswers(b, "test.blah. 3600 A 1.2.3.4")
 	b.ResetTimer()

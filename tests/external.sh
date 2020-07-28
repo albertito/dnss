@@ -114,36 +114,8 @@ if ! grep -q "insecure_http_server=true" .wget.out; then
 	exit 1
 fi
 
-echo "## Autodetect against dnss"
-dnss -enable_dns_to_https -dns_listen_addr "localhost:1053" \
-	-insecure_http_server \
-	-https_upstream "http://localhost:1999/dns-query"
-
-resolve
-kill $PID
-
-echo "## JSON against dnss"
-dnss -enable_dns_to_https -dns_listen_addr "localhost:1053" \
-	-insecure_http_server \
-	-force_mode="JSON" \
-	-https_upstream "http://localhost:1999/dns-query"
-
-resolve
-
-# Exercise some interesting JSON requests.
-get "http://localhost:1999/dns-query?name=test&edns_client_subnet=1.2.3.4/24"
-get "http://localhost:1999/dns-query?name=test&edns_client_subnet=2001:700:300::/48"
-if get "http://localhost:1999/dns-query?name=test&type=lalala"; then
-	echo "GET with invalid query did not fail"
-	exit 1
-fi
-
-kill $PID
-
 echo "## DoH against dnss"
 dnss -enable_dns_to_https -dns_listen_addr "localhost:1053" \
-	-insecure_http_server \
-	-force_mode="DoH" \
 	-https_upstream "http://localhost:1999/dns-query"
 
 # Exercise DoH via GET (dnss always uses POST).
@@ -165,22 +137,6 @@ kill $PID
 kill $HTTP_PID
 
 
-echo "## Autodetect against dns.google/resolve (JSON)"
-dnss -enable_dns_to_https -dns_listen_addr "localhost:1053" \
-	-https_upstream "https://dns.google/resolve"
-
-resolve
-kill $PID
-
-echo "## JSON against dns.google/resolve"
-dnss -enable_dns_to_https -dns_listen_addr "localhost:1053" \
-	-force_mode="JSON" \
-	-https_upstream "https://dns.google/resolve"
-
-resolve
-kill $PID
-
-
 # DoH integration test against some publicly available servers.
 # https://github.com/curl/curl/wiki/DNS-over-HTTPS#publicly-available-servers
 # Note not all of the ones in the list are actually functional.
@@ -194,13 +150,6 @@ for server in \
 	;
 do
 	echo "## DoH against $server"
-	dnss -enable_dns_to_https -dns_listen_addr "localhost:1053" \
-		-force_mode="DoH" \
-		-https_upstream "$server"
-	resolve
-	kill $PID
-
-	echo "## Autodetect against $server"
 	dnss -enable_dns_to_https -dns_listen_addr "localhost:1053" \
 		-https_upstream "$server"
 	resolve

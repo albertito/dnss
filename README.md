@@ -19,9 +19,6 @@ It can also act as a DoH server, in case you want end to end control.
 * Supports the
   [DNS Queries over HTTPS (DoH)](https://en.wikipedia.org/wiki/DNS_over_HTTPS)
   standard ([RFC 8484](https://tools.ietf.org/html/rfc8484)).
-* Supports the older JSON-based protocol as implemented by
-  [dns.google](https://dns.google)
-  ([reference](https://developers.google.com/speed/public-dns/docs/dns-over-https)).
 * Local cache (optional).
 * HTTP(s) proxy support, autodetected from the environment.
 * Monitoring HTTP server, with exported variables and tracing to help
