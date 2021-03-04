@@ -44,6 +44,15 @@ function dnss() {
 	PID=$!
 }
 
+# Run minidns in the background (sets $MINIDNS_PID to its process id).
+function minidns() {
+	go run tests/minidns.go \
+		-addr ":1953" \
+		-zones tests/testzones \
+		> .minidns.log 2>&1 &
+	MINIDNS_PID=$!
+}
+
 # Wait until there's something listening on the given port.
 function wait_until_ready() {
 	PROTO=$1
@@ -88,11 +97,11 @@ function get() {
 }
 
 function generate_certs() {
-	mkdir -p .certs/localhost
+	mkdir -p .certs/$1
 	(
-		cd .certs/localhost
+		cd .certs/$1
 		go run ../../tests/generate_cert.go \
-			-ca -duration=1h --host=localhost
+			-ca -duration=1h --host=$1
 	)
 }
 
@@ -105,6 +114,9 @@ if wait $PID; then
 	exit 1
 fi
 
+echo "## Launching minidns for testing"
+minidns
+wait_until_ready tcp 1953
 
 echo "## Launching HTTPS server"
 dnss -enable_https_to_dns \
@@ -126,7 +138,8 @@ fi
 
 echo "## DoH against dnss"
 dnss -enable_dns_to_https -dns_listen_addr "localhost:1053" \
-	-https_upstream "http://localhost:1999/dns-query"
+	-fallback_upstream "127.0.0.1:1953" \
+	-https_upstream "http://upstream:1999/dns-query"
 
 # Exercise DoH via GET (dnss always uses POST).
 get "http://localhost:1999/resolve?&dns=q80BAAABAAAAAAAAA3d3dwdleGFtcGxlA2NvbQAAAQAB"
@@ -148,23 +161,25 @@ kill $HTTP_PID
 
 
 echo "## HTTPS with custom certificates"
-generate_certs
+generate_certs upstream
 dnss -enable_https_to_dns \
-	-https_key .certs/localhost/privkey.pem \
-	-https_cert .certs/localhost/fullchain.pem \
+	-https_key .certs/upstream/privkey.pem \
+	-https_cert .certs/upstream/fullchain.pem \
 	-https_server_addr "localhost:1999"
 HTTP_PID=$PID
 mv .dnss.log .dnss.http.log
 wait_until_ready tcp 1999
 
 dnss -enable_dns_to_https -dns_listen_addr "localhost:1053" \
-	-https_client_cafile .certs/localhost/fullchain.pem \
-	-https_upstream "https://localhost:1999/dns-query"
+	-fallback_upstream "127.0.0.1:1953" \
+	-https_client_cafile .certs/upstream/fullchain.pem \
+	-https_upstream "https://upstream:1999/dns-query"
 
 resolve
 
 kill $PID
 kill $HTTP_PID
+kill $MINIDNS_PID
 
 
 # DoH integration test against some publicly available servers.

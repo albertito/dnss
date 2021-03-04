@@ -1,0 +1,3 @@
+# Zones for minidns to use in the tests.
+upstream A    127.0.0.1
+upstream AAAA ::1

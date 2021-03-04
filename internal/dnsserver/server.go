@@ -49,27 +49,15 @@ type Server struct {
 	Addr        string
 	unqUpstream string
 	resolver    Resolver
-
-	fallbackDomains  map[string]struct{}
-	fallbackUpstream string
 }
 
 // New *Server, which will listen on addr, use resolver as the backend
 // resolver, and use unqUpstream to resolve unqualified queries.
 func New(addr string, resolver Resolver, unqUpstream string) *Server {
 	return &Server{
-		Addr:            addr,
-		resolver:        resolver,
-		unqUpstream:     unqUpstream,
-		fallbackDomains: map[string]struct{}{},
-	}
-}
-
-// SetFallback upstream server for the given domains.
-func (s *Server) SetFallback(upstream string, domains []string) {
-	s.fallbackUpstream = upstream
-	for _, d := range domains {
-		s.fallbackDomains[d] = struct{}{}
+		Addr:        addr,
+		resolver:    resolver,
+		unqUpstream: unqUpstream,
 	}
 }
 
@@ -103,21 +91,6 @@ func (s *Server) Handler(w dns.ResponseWriter, r *dns.Msg) {
 			w.WriteMsg(u)
 		} else {
 			tr.LazyPrintf("unqualified upstream error: %v", err)
-			dns.HandleFailed(w, r)
-		}
-
-		return
-	}
-
-	// Forward to the fallback server if the domain is on our list.
-	if _, ok := s.fallbackDomains[r.Question[0].Name]; ok {
-		u, err := dns.Exchange(r, s.fallbackUpstream)
-		if err == nil {
-			tr.LazyPrintf("used fallback upstream (%s)", s.fallbackUpstream)
-			util.TraceAnswer(tr, u)
-			w.WriteMsg(u)
-		} else {
-			tr.LazyPrintf("fallback upstream error: %v", err)
 			dns.HandleFailed(w, r)
 		}
 

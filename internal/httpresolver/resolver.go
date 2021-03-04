@@ -2,6 +2,7 @@ package httpresolver
 
 import (
 	"bytes"
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
@@ -28,6 +29,10 @@ type httpsResolver struct {
 	CAFile    string
 	tlsConfig *tls.Config
 
+	// net.Resolver that will contact the server at --fallback_upstream for
+	// DNS resolutions.
+	fallbackResolver *net.Resolver
+
 	mu       sync.Mutex
 	client   *http.Client
 	firstErr time.Time
@@ -51,11 +56,27 @@ func loadCertPool(caFile string) (*x509.CertPool, error) {
 
 // NewDoH creates a new DoH resolver, which uses the given upstream
 // URL to resolve queries.
-func NewDoH(upstream *url.URL, caFile string) *httpsResolver {
-	return &httpsResolver{
+func NewDoH(upstream *url.URL, caFile, fallback string) *httpsResolver {
+	r := &httpsResolver{
 		Upstream: upstream,
 		CAFile:   caFile,
 	}
+
+	if fallback != "" {
+		// Dial function that will always use the fallback address to contact
+		// DNS.
+		dialer := net.Dialer{}
+		dialFallback := func(ctx context.Context, network, address string) (net.Conn, error) {
+			return dialer.DialContext(ctx, network, fallback)
+		}
+
+		r.fallbackResolver = &net.Resolver{
+			PreferGo: true, // Avoid the system resolver.
+			Dial:     dialFallback,
+		}
+	}
+
+	return r
 }
 
 func (r *httpsResolver) Init() error {
@@ -101,6 +122,7 @@ func (r *httpsResolver) newClient() (*http.Client, error) {
 			Timeout:   10 * time.Second,
 			KeepAlive: 1 * time.Second,
 			DualStack: true,
+			Resolver:  r.fallbackResolver,
 		}).DialContext,
 		ForceAttemptHTTP2:     true,
 		MaxIdleConns:          10,

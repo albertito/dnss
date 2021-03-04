@@ -16,10 +16,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"strings"
 	"sync"
-
-	"golang.org/x/net/http/httpproxy"
 
 	"blitiri.com.ar/go/dnss/internal/dnsserver"
 	"blitiri.com.ar/go/dnss/internal/httpresolver"
@@ -38,10 +35,8 @@ var (
 		"DNS server to forward unqualified requests to")
 
 	fallbackUpstream = flag.String("fallback_upstream", "8.8.8.8:53",
-		"DNS server to resolve domains in --fallback_domains")
-	fallbackDomains = flag.String("fallback_domains", "dns.google.",
-		"Domains we resolve via DNS, using --fallback_upstream"+
-			" (space-separated list)")
+		"DNS server used to resolve domains in -https_upstream"+
+			" (including proxy if needed)")
 
 	enableDNStoHTTPS = flag.Bool("enable_dns_to_https", false,
 		"enable DNS-to-HTTPS proxy")
@@ -74,6 +69,7 @@ var (
 	_ = flag.Duration("log_flush_every", 0, "deprecated, will be removed")
 	_ = flag.Bool("logtostderr", false, "deprecated, will be removed")
 	_ = flag.String("force_mode", "", "deprecated, will be removed")
+	_ = flag.String("fallback_domains", "", "deprecated, will be removed")
 )
 
 func main() {
@@ -101,7 +97,7 @@ func main() {
 		}
 
 		var resolver dnsserver.Resolver
-		resolver = httpresolver.NewDoH(upstream, *httpsClientCAFile)
+		resolver = httpresolver.NewDoH(upstream, *httpsClientCAFile, *fallbackUpstream)
 
 		if *enableCache {
 			cr := dnsserver.NewCachingResolver(resolver)
@@ -110,15 +106,6 @@ func main() {
 		}
 		dth := dnsserver.New(*dnsListenAddr, resolver, *dnsUnqualifiedUpstream)
 
-		// If we're using an HTTP proxy, add the name to the fallback domain
-		// so we don't have problems resolving it.
-		fallbackDoms := strings.Split(*fallbackDomains, " ")
-		if proxyDomain := proxyServerDomain(); proxyDomain != "" {
-			log.Infof("Adding proxy %q to fallback domains", proxyDomain)
-			fallbackDoms = append(fallbackDoms, proxyDomain)
-		}
-
-		dth.SetFallback(*fallbackUpstream, fallbackDoms)
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
@@ -144,23 +131,6 @@ func main() {
 	}
 
 	wg.Wait()
-}
-
-// proxyServerDomain checks if we're using an HTTP proxy server, and if so
-// returns its domain.
-func proxyServerDomain() string {
-	url, err := url.Parse(*httpsUpstream)
-	if err != nil {
-		return ""
-	}
-
-	proxyFunc := httpproxy.FromEnvironment().ProxyFunc()
-	proxyURL, err := proxyFunc(url)
-	if err != nil || proxyURL == nil {
-		return ""
-	}
-
-	return proxyURL.Hostname()
 }
 
 func launchMonitoringServer(addr string) {

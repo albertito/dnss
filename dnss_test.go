@@ -61,7 +61,11 @@ func Setup(tb testing.TB) string {
 		tb.Fatalf("invalid URL: %v", err)
 	}
 
-	r := httpresolver.NewDoH(HTTPSToDNSURL, "")
+	// Create the DoH resolver and DNS server backed by it.
+	// Note that we use an invalid address as fallback resolver - since we use
+	// IP addresses directly in the http requests, the fallback resolver
+	// should not be needed.
+	r := httpresolver.NewDoH(HTTPSToDNSURL, "", "0.0.0.0:0")
 	dtoh := dnsserver.New(DNSToHTTPSAddr, r, "")
 	go dtoh.ListenAndServe()
 
@@ -184,41 +188,6 @@ func BenchmarkSimple(b *testing.B) {
 
 /////////////////////////////////////////////////////////////////////
 // Tests for main-specific helpers
-
-func TestProxyServerDomain(t *testing.T) {
-	prevProxy, wasSet := os.LookupEnv("HTTPS_PROXY")
-
-	// Valid case, proxy set.
-	os.Setenv("HTTPS_PROXY", "http://proxy:1234/p")
-	*httpsUpstream = "https://montoto/xyz"
-	if got := proxyServerDomain(); got != "proxy" {
-		t.Errorf("got %q, expected 'proxy'", got)
-	}
-
-	// Valid case, proxy not set.
-	os.Unsetenv("HTTPS_PROXY")
-	*httpsUpstream = "https://montoto/xyz"
-	if got := proxyServerDomain(); got != "" {
-		t.Errorf("got %q, expected ''", got)
-	}
-
-	// Invalid upstream URL.
-	*httpsUpstream = "in%20valid:url"
-	if got := proxyServerDomain(); got != "" {
-		t.Errorf("got %q, expected ''", got)
-	}
-
-	// Invalid proxy.
-	os.Setenv("HTTPS_PROXY", "invalid value")
-	*httpsUpstream = "https://montoto/xyz"
-	if got := proxyServerDomain(); got != "" {
-		t.Errorf("got %q, expected ''", got)
-	}
-
-	if wasSet {
-		os.Setenv("HTTPS_PROXY", prevProxy)
-	}
-}
 
 func TestMonitoringServer(t *testing.T) {
 	addr := testutil.GetFreePort()

@@ -21,19 +21,12 @@ func TestServe(t *testing.T) {
 	go testutil.ServeTestDNSServer(unqUpstreamAddr,
 		testutil.MakeStaticHandler(t, "unq. A 2.2.2.2"))
 
-	fallbackAddr := testutil.GetFreePort()
-	go testutil.ServeTestDNSServer(fallbackAddr,
-		testutil.MakeStaticHandler(t, "fallback. A 3.3.3.3"))
-
 	srv := New(testutil.GetFreePort(), res, unqUpstreamAddr)
-	srv.SetFallback(fallbackAddr, []string{"one.fallback.", "two.fallback."})
 	go srv.ListenAndServe()
 	testutil.WaitForDNSServer(srv.Addr)
 
 	query(t, srv.Addr, "response.test.", "1.1.1.1")
 	query(t, srv.Addr, "unqualified.", "2.2.2.2")
-	query(t, srv.Addr, "one.fallback.", "3.3.3.3")
-	query(t, srv.Addr, "two.fallback.", "3.3.3.3")
 }
 
 func query(t *testing.T, srv, domain, expected string) {
@@ -56,17 +49,13 @@ func TestBadUpstreams(t *testing.T) {
 	// Get addresses but don't start the servers, so we get an error when
 	// trying to reach them.
 	unqUpstreamAddr := testutil.GetFreePort()
-	fallbackAddr := testutil.GetFreePort()
 
 	srv := New(testutil.GetFreePort(), res, unqUpstreamAddr)
-	srv.SetFallback(fallbackAddr, []string{"one.fallback.", "two.fallback."})
 	go srv.ListenAndServe()
 	testutil.WaitForDNSServer(srv.Addr)
 
 	queryFailure(t, srv.Addr, "response.test.")
 	queryFailure(t, srv.Addr, "unqualified.")
-	queryFailure(t, srv.Addr, "one.fallback.")
-	queryFailure(t, srv.Addr, "two.fallback.")
 }
 
 func queryFailure(t *testing.T, srv, domain string) {
