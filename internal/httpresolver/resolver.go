@@ -40,6 +40,8 @@ type httpsResolver struct {
 	ev trace.EventLog
 }
 
+var errAppendingCerts = fmt.Errorf("error appending certificates")
+
 func loadCertPool(caFile string) (*x509.CertPool, error) {
 	pemData, err := ioutil.ReadFile(caFile)
 	if err != nil {
@@ -48,7 +50,7 @@ func loadCertPool(caFile string) (*x509.CertPool, error) {
 
 	pool := x509.NewCertPool()
 	if !pool.AppendCertsFromPEM(pemData) {
-		return nil, fmt.Errorf("Error appending certificates")
+		return nil, errAppendingCerts
 	}
 
 	return pool, nil
