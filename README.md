@@ -10,7 +10,7 @@ on laptops and small/home networks.
 It can also act as a DoH server, in case you want end to end control.
 
 
-[![Build Status](https://travis-ci.org/albertito/dnss.svg?branch=master)](https://travis-ci.org/albertito/dnss)
+[![Build Status](https://gitlab.com/albertito/dnss/badges/master/pipeline.svg)](https://gitlab.com/albertito/dnss/-/pipelines)
 [![Go Report Card](https://goreportcard.com/badge/github.com/albertito/dnss)](https://goreportcard.com/report/github.com/albertito/dnss)
 
 
