@@ -22,6 +22,7 @@ set -e
 cd "$(git rev-parse --show-toplevel)"
 
 BDIR=".bench-history"
+mkdir -p $BDIR
 
 # Get a filename based on the current commit.
 function commit_fname() {
