@@ -115,7 +115,7 @@ func (s *Server) resolveDoH(tr *trace.Trace, w http.ResponseWriter, dnsQuery []b
 	tr.Question(r.Question)
 
 	// Do the DNS request, get the reply.
-	fromUp, err := dns.Exchange(r, s.Upstream)
+	fromUp, err := exchange(tr, r, s.Upstream)
 	if err != nil {
 		err = tr.Errorf("dns exchange error: %v", err)
 		http.Error(w, err.Error(), http.StatusFailedDependency)
@@ -142,4 +142,28 @@ func (s *Server) resolveDoH(tr *trace.Trace, w http.ResponseWriter, dnsQuery []b
 	// TODO: set cache-control based on the response.
 	w.WriteHeader(http.StatusOK)
 	w.Write(packed)
+}
+
+func exchange(tr *trace.Trace, r *dns.Msg, addr string) (*dns.Msg, error) {
+	reply, err := dns.Exchange(r, addr)
+	if err == nil && !reply.Truncated {
+		tr.Printf("UDP exchange successful")
+		return reply, err
+	}
+
+	// If we had issues over UDP, or the message was truncated, retry over
+	// TCP. We don't try beyond that.
+	if err != nil {
+		tr.Printf("error on UDP exchange: %v", err)
+	} else if reply.Truncated {
+		tr.Printf("UDP exchange returned truncated reply: %v", reply.MsgHdr)
+	}
+	tr.Printf("retrying on TCP")
+
+	c := &dns.Client{
+		Net: "tcp",
+	}
+
+	reply, _, err = c.Exchange(r, addr)
+	return reply, err
 }

@@ -109,13 +109,19 @@ func (m *miniDNS) listenAndServeUDP(addr string) {
 			continue
 		}
 		q := msg.Questions[0]
-		log.Infof("%v/%-5d   Q: %s %s %s",
+		log.Infof("[UDP] %v/%-5d   Q: %s %s %s",
 			addr, msg.ID, q.Name, q.Type, q.Class)
 
 		reply := m.handle(msg)
 		rbuf, err := reply.Pack()
 		if err != nil {
 			log.Fatalf("error packing reply: %v", err)
+		}
+		if len(rbuf) > 512 {
+			log.Infof("truncating UDP response of %v bytes", len(rbuf))
+			reply.Truncated = true
+			reply.Answers = nil
+			rbuf, err = reply.Pack()
 		}
 
 		conn.WriteTo(rbuf, addr)
@@ -151,7 +157,7 @@ func (m *miniDNS) listenAndServeTCP(addr string) {
 			continue
 		}
 		q := msg.Questions[0]
-		log.Infof("%v/%-5d   Q: %s %s %s",
+		log.Infof("[TCP] %v/%-5d   Q: %s %s %s",
 			addr, msg.ID, q.Name, q.Type, q.Class)
 
 		reply := m.handle(msg)
