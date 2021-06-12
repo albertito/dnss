@@ -1,3 +1,22 @@
 # Zones for minidns to use in the tests.
 upstream A    127.0.0.1
 upstream AAAA ::1
+
+example.com A    1.2.3.4
+example.com AAAA 1001:2002:3003::4004
+
+com.ar NS a.dns.ar.
+com.ar NS b.dns.ar.
+com.ar NS c.dns.ar.
+com.ar NS e.dns.ar.
+com.ar NS f.dns.ar.
+
+google.com TXT aaaaaaaaaaaaaaaaaaaaaaaaa=bbbbbbbbbbbbbbbb
+google.com TXT cccccccc=dddddddddddddddddddddddddddddddddddd
+google.com TXT eeeeeeeeeeeeeeeeeee=ffffffffffffffffffffffffffffffffffffffffffff
+google.com TXT gggggggggggggggggggggggg=hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
+google.com TXT iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii
+google.com TXT jjjjjjjj=kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk
+google.com TXT llllllllllllllllllllllll=mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm
+google.com TXT nn=oooooooooooooooooooooooooooooooooooooooo
+google.com TXT pppppppppppppppppppppppppppp=qqqqqqqqqqqqqqqqqqqqqqqqqqqqqq

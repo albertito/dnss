@@ -279,6 +279,11 @@ func (m *miniDNS) loadZones(f *os.File) {
 				Pref: 10,
 				MX:   dnsmessage.MustNewName(value),
 			}
+		case "ns":
+			qType = dnsmessage.TypeNS
+			body = &dnsmessage.NSResource{
+				NS: dnsmessage.MustNewName(value),
+			}
 		case "txt":
 			qType = dnsmessage.TypeTXT
 			body = &dnsmessage.TXTResource{

@@ -119,7 +119,7 @@ minidns
 wait_until_ready tcp 1953
 
 echo "## Launching HTTPS server"
-dnss -enable_https_to_dns \
+dnss -enable_https_to_dns -dns_upstream "localhost:1953" \
 	-insecure_http_server -https_server_addr "localhost:1999"
 HTTP_PID=$PID
 mv .dnss.log .dnss.http.log
