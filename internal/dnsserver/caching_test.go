@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"blitiri.com.ar/go/dnss/internal/testutil"
+	"blitiri.com.ar/go/dnss/internal/trace"
 
 	"github.com/miekg/dns"
 )
@@ -212,7 +213,9 @@ func BenchmarkCacheSimple(b *testing.B) {
 	c := NewCachingResolver(r)
 	c.Init()
 
-	tr := &testutil.NullTrace{}
+	tr := trace.New("test", "Benchmark")
+	defer tr.Finish()
+
 	req := newQuery("test.", dns.TypeA)
 
 	b.ResetTimer()
@@ -254,7 +257,7 @@ func queryA(t *testing.T, c *cachingResolver, rr, domain, expected string) *dns.
 		back.Response = newReply(mustNewRR(t, rr))
 	}
 
-	tr := testutil.NewTestTrace(t)
+	tr := trace.New("test", "queryA")
 	defer tr.Finish()
 
 	req := newQuery(domain, dns.TypeA)
@@ -282,7 +285,7 @@ func queryFail(t *testing.T, c *cachingResolver) *dns.Msg {
 	back.Response.Response = true
 	back.Response.Rcode = dns.RcodeNameError
 
-	tr := testutil.NewTestTrace(t)
+	tr := trace.New("test", "queryFail")
 	defer tr.Finish()
 
 	req := newQuery("doesnotexist.", dns.TypeA)

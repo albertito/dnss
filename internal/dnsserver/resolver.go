@@ -8,10 +8,10 @@ import (
 	"sync"
 	"time"
 
-	"blitiri.com.ar/go/log"
+	"blitiri.com.ar/go/dnss/internal/trace"
 
+	"blitiri.com.ar/go/log"
 	"github.com/miekg/dns"
-	"golang.org/x/net/trace"
 )
 
 // Resolver is the interface for DNS resolvers that can answer queries.
@@ -24,7 +24,7 @@ type Resolver interface {
 	Maintain()
 
 	// Query responds to a DNS query.
-	Query(r *dns.Msg, tr trace.Trace) (*dns.Msg, error)
+	Query(r *dns.Msg, tr *trace.Trace) (*dns.Msg, error)
 }
 
 ///////////////////////////////////////////////////////////////////////////
@@ -178,7 +178,7 @@ func (c *cachingResolver) Maintain() {
 			expired++
 		}
 		c.mu.Unlock()
-		tr.LazyPrintf("total: %d   expired: %d", total, expired)
+		tr.Printf("total: %d   expired: %d", total, expired)
 		tr.Finish()
 	}
 }
@@ -237,12 +237,12 @@ func copyRRSlice(a []dns.RR) []dns.RR {
 	return b
 }
 
-func (c *cachingResolver) Query(r *dns.Msg, tr trace.Trace) (*dns.Msg, error) {
+func (c *cachingResolver) Query(r *dns.Msg, tr *trace.Trace) (*dns.Msg, error) {
 	stats.cacheTotal.Add(1)
 
 	// To keep it simple we only cache single-question queries.
 	if len(r.Question) != 1 {
-		tr.LazyPrintf("cache bypass: multi-question query")
+		tr.Printf("cache bypass: multi-question query")
 		stats.cacheBypassed.Add(1)
 		return c.back.Query(r, tr)
 	}
@@ -254,7 +254,7 @@ func (c *cachingResolver) Query(r *dns.Msg, tr trace.Trace) (*dns.Msg, error) {
 	c.mu.RUnlock()
 
 	if hit {
-		tr.LazyPrintf("cache hit")
+		tr.Printf("cache hit")
 		stats.cacheHits.Add(1)
 
 		reply := &dns.Msg{
@@ -271,7 +271,7 @@ func (c *cachingResolver) Query(r *dns.Msg, tr trace.Trace) (*dns.Msg, error) {
 		return reply, nil
 	}
 
-	tr.LazyPrintf("cache miss")
+	tr.Printf("cache miss")
 	stats.cacheMisses.Add(1)
 
 	reply, err := c.back.Query(r, tr)
@@ -280,7 +280,7 @@ func (c *cachingResolver) Query(r *dns.Msg, tr trace.Trace) (*dns.Msg, error) {
 	}
 
 	if err = wantToCache(question, reply); err != nil {
-		tr.LazyPrintf("cache not recording reply: %v", err)
+		tr.Printf("cache not recording reply: %v", err)
 		return reply, nil
 	}
 

@@ -16,10 +16,10 @@ import (
 	"time"
 
 	"blitiri.com.ar/go/dnss/internal/dnsserver"
-	"blitiri.com.ar/go/log"
+	"blitiri.com.ar/go/dnss/internal/trace"
 
+	"blitiri.com.ar/go/log"
 	"github.com/miekg/dns"
-	"golang.org/x/net/trace"
 )
 
 // httpsResolver implements the dnsserver.Resolver interface by querying a
@@ -36,8 +36,6 @@ type httpsResolver struct {
 	mu       sync.Mutex
 	client   *http.Client
 	firstErr time.Time
-
-	ev trace.EventLog
 }
 
 var errAppendingCerts = fmt.Errorf("error appending certificates")
@@ -101,8 +99,9 @@ func (r *httpsResolver) Init() error {
 	r.client = client
 	r.mu.Unlock()
 
-	r.ev = trace.NewEventLog("httpresolver", r.Upstream.String())
-	r.ev.Printf("Init complete, client: %p", r.client)
+	tr := trace.New("httpresolver", r.Upstream.String())
+	tr.Printf("Init complete, client: %p", r.client)
+	tr.Finish()
 
 	return err
 }
@@ -178,28 +177,31 @@ func (r *httpsResolver) maybeRotateClient() {
 	// The time chosen here combines with the transport timeouts set above, so
 	// we never have too many in-flight connections.
 	if time.Since(r.firstErr) > 10*time.Second {
-		r.ev.Printf("Rotating client after %s of errors: %p",
+		tr := trace.New("httpresolver", r.Upstream.String())
+		defer tr.Finish()
+
+		tr.Printf("Rotating client after %s of errors: %p",
 			time.Since(r.firstErr), r.client)
 		client, err := r.newClient()
 		if err != nil {
-			r.ev.Errorf("Error creating new client: %v", err)
+			tr.Errorf("Error creating new client: %v", err)
 			return
 		}
 
 		r.client = client
 		r.firstErr = time.Time{}
-		r.ev.Printf("Rotated client: %p", r.client)
+		tr.Printf("Rotated client: %p", r.client)
 	}
 }
 
-func (r *httpsResolver) Query(req *dns.Msg, tr trace.Trace) (*dns.Msg, error) {
+func (r *httpsResolver) Query(req *dns.Msg, tr *trace.Trace) (*dns.Msg, error) {
 	packed, err := req.Pack()
 	if err != nil {
 		return nil, fmt.Errorf("cannot pack query: %v", err)
 	}
 
 	if log.V(3) {
-		tr.LazyPrintf("DoH POST %v", r.Upstream)
+		tr.Printf("DoH POST %v", r.Upstream)
 	}
 
 	// TODO: Accept header.
@@ -216,7 +218,7 @@ func (r *httpsResolver) Query(req *dns.Msg, tr trace.Trace) (*dns.Msg, error) {
 	if err != nil {
 		return nil, fmt.Errorf("POST failed: %v", err)
 	}
-	tr.LazyPrintf("%s  %s", hr.Proto, hr.Status)
+	tr.Printf("%s  %s", hr.Proto, hr.Status)
 	defer hr.Body.Close()
 
 	if hr.StatusCode != http.StatusOK {

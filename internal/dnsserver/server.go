@@ -10,12 +10,11 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/miekg/dns"
-	"golang.org/x/net/trace"
+	"blitiri.com.ar/go/dnss/internal/trace"
 
-	"blitiri.com.ar/go/dnss/internal/util"
 	"blitiri.com.ar/go/log"
 	"blitiri.com.ar/go/systemd"
+	"github.com/miekg/dns"
 )
 
 // newID is a channel used to generate new request IDs.
@@ -66,13 +65,12 @@ func (s *Server) Handler(w dns.ResponseWriter, r *dns.Msg) {
 	tr := trace.New("dnsserver", "Handler")
 	defer tr.Finish()
 
-	tr.LazyPrintf("from:%v   id:%v", w.RemoteAddr(), r.Id)
-
-	util.TraceQuestion(tr, r.Question)
+	tr.Printf("from:%v   id:%v", w.RemoteAddr(), r.Id)
+	tr.Question(r.Question)
 
 	// We only support single-question queries.
 	if len(r.Question) != 1 {
-		tr.LazyPrintf("len(Q) != 1, failing")
+		tr.Printf("len(Q) != 1, failing")
 		dns.HandleFailed(w, r)
 		return
 	}
@@ -86,11 +84,11 @@ func (s *Server) Handler(w dns.ResponseWriter, r *dns.Msg) {
 	if useUnqUpstream {
 		u, err := dns.Exchange(r, s.unqUpstream)
 		if err == nil {
-			tr.LazyPrintf("used unqualified upstream")
-			util.TraceAnswer(tr, u)
+			tr.Printf("used unqualified upstream")
+			tr.Answer(u)
 			w.WriteMsg(u)
 		} else {
-			tr.LazyPrintf("unqualified upstream error: %v", err)
+			tr.Printf("unqualified upstream error: %v", err)
 			dns.HandleFailed(w, r)
 		}
 
@@ -105,15 +103,14 @@ func (s *Server) Handler(w dns.ResponseWriter, r *dns.Msg) {
 	fromUp, err := s.resolver.Query(r, tr)
 	if err != nil {
 		log.Infof("resolver query error: %v", err)
-		tr.LazyPrintf(err.Error())
-		tr.SetError()
+		tr.Error(err)
 
 		r.Id = oldid
 		dns.HandleFailed(w, r)
 		return
 	}
 
-	util.TraceAnswer(tr, fromUp)
+	tr.Answer(fromUp)
 
 	fromUp.Id = oldid
 	w.WriteMsg(fromUp)

@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"golang.org/x/net/trace"
+	"blitiri.com.ar/go/dnss/internal/trace"
 
 	"github.com/miekg/dns"
 )
@@ -123,7 +123,7 @@ func (r *TestResolver) Maintain() {
 }
 
 // Query handles the given query, returning the pre-recorded response.
-func (r *TestResolver) Query(req *dns.Msg, tr trace.Trace) (*dns.Msg, error) {
+func (r *TestResolver) Query(req *dns.Msg, tr *trace.Trace) (*dns.Msg, error) {
 	r.LastQuery = req
 	if r.Response != nil {
 		r.Response.Question = req.Question
@@ -163,39 +163,3 @@ func NewRR(tb testing.TB, s string) dns.RR {
 	}
 	return rr
 }
-
-// TestTrace implements the tracer.Trace interface, but prints using the test
-// logging infrastructure.
-type TestTrace struct {
-	T *testing.T
-}
-
-func NewTestTrace(t *testing.T) *TestTrace {
-	return &TestTrace{t}
-}
-
-func (t *TestTrace) LazyLog(x fmt.Stringer, sensitive bool) {
-	t.T.Logf("trace %p (%t): %s", t, sensitive, x)
-}
-
-func (t *TestTrace) LazyPrintf(format string, a ...interface{}) {
-	prefix := fmt.Sprintf("trace %p: ", t)
-	t.T.Logf(prefix+format, a...)
-}
-
-func (t *TestTrace) SetError()                           {}
-func (t *TestTrace) SetRecycler(f func(interface{}))     {}
-func (t *TestTrace) SetTraceInfo(traceID, spanID uint64) {}
-func (t *TestTrace) SetMaxEvents(m int)                  {}
-func (t *TestTrace) Finish()                             {}
-
-// NullTrace implements the tracer.Trace interface, but discards everything.
-type NullTrace struct{}
-
-func (t *NullTrace) LazyLog(x fmt.Stringer, sensitive bool)     {}
-func (t *NullTrace) LazyPrintf(format string, a ...interface{}) {}
-func (t *NullTrace) SetError()                                  {}
-func (t *NullTrace) SetRecycler(f func(interface{}))            {}
-func (t *NullTrace) SetTraceInfo(traceID, spanID uint64)        {}
-func (t *NullTrace) SetMaxEvents(m int)                         {}
-func (t *NullTrace) Finish()                                    {}

@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"blitiri.com.ar/go/dnss/internal/testutil"
+	"blitiri.com.ar/go/dnss/internal/trace"
 	"github.com/miekg/dns"
 )
 
@@ -37,7 +38,9 @@ func mustNewDoH(t *testing.T, urlS string) *httpsResolver {
 
 func query(t *testing.T, r *httpsResolver, req string) (dns.RR, error) {
 	t.Helper()
-	tr := testutil.NewTestTrace(t)
+	tr := trace.New("test", "query")
+	defer tr.Finish()
+
 	dr := new(dns.Msg)
 	dr.SetQuestion(req, dns.TypeA)
 	resp, err := r.Query(dr, tr)
@@ -161,7 +164,8 @@ func TestBadRequest(t *testing.T) {
 	defer ts.Close()
 
 	r := mustNewDoH(t, ts.URL)
-	tr := testutil.NewTestTrace(t)
+	tr := trace.New("test", "TestBadRequest")
+	defer tr.Finish()
 
 	// Construct a request that cannot be packed, in this case the Rcode is
 	// invalid.
