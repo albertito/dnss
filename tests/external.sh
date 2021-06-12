@@ -87,6 +87,34 @@ function resolve() {
 		cat .dig.log
 		false
 	fi
+
+	# The response exceeds the default UDP size (512b), so it should fall back
+	# to TCP. This exercises the truncating logic.
+	kdig @127.0.0.1:1053  google.com TXT > .dig.log 2>&1
+	if ! grep -E -i -q '^google.com.*TXT'  .dig.log; then
+		echo "----- FAILED (missing response)"
+		cat .dig.log
+		false
+	fi
+	if ! grep -E -i -q 'retrying over TCP'  .dig.log; then
+		echo "----- FAILED (did not use TCP)"
+		cat .dig.log
+		false
+	fi
+
+	# Same as above, but we explicitly are ok with a 2k response, which
+	# fits the reply. We check that we do NOT fall back to TCP.
+	kdig @127.0.0.1:1053 +bufsize=2048 google.com TXT > .dig.log 2>&1
+	if ! grep -E -i -q '^google.com.*TXT'  .dig.log; then
+		echo "----- FAILED (missing response)"
+		cat .dig.log
+		false
+	fi
+	if grep -E -i -q 'retrying over TCP'  .dig.log; then
+		echo "----- FAILED (used TCP)"
+		cat .dig.log
+		false
+	fi
 }
 
 # HTTP GET, using wget.
@@ -190,7 +218,6 @@ for server in \
 	"https://cloudflare-dns.com/dns-query" \
 	"https://dns.google/dns-query" \
 	"https://dns.quad9.net/dns-query" \
-	"https://doh.cleanbrowsing.org/doh/family-filter/" \
 	"https://doh.powerdns.org" \
 	;
 do

@@ -86,7 +86,7 @@ func (s *Server) Handler(w dns.ResponseWriter, r *dns.Msg) {
 		if err == nil {
 			tr.Printf("used unqualified upstream")
 			tr.Answer(u)
-			w.WriteMsg(u)
+			s.writeReply(tr, w, r, u)
 		} else {
 			tr.Printf("unqualified upstream error: %v", err)
 			dns.HandleFailed(w, r)
@@ -113,7 +113,24 @@ func (s *Server) Handler(w dns.ResponseWriter, r *dns.Msg) {
 	tr.Answer(fromUp)
 
 	fromUp.Id = oldid
-	w.WriteMsg(fromUp)
+	s.writeReply(tr, w, r, fromUp)
+}
+
+func (s *Server) writeReply(tr *trace.Trace, w dns.ResponseWriter, r, reply *dns.Msg) {
+	if w.RemoteAddr().Network() == "udp" {
+		// We need to check if the response fits.
+		// UDP by default has a maximum of 512 bytes. This can be extended via
+		// the client in the EDNS0 record.
+		max := 512
+		ednsOPT := r.IsEdns0()
+		if ednsOPT != nil {
+			max = int(ednsOPT.UDPSize())
+		}
+		reply.Truncate(max)
+		tr.Printf("UDP max:%d truncated:%v", max, reply.Truncated)
+	}
+
+	w.WriteMsg(reply)
 }
 
 // ListenAndServe launches the DNS proxy.

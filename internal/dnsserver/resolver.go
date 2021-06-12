@@ -194,6 +194,8 @@ func wantToCache(question dns.Question, reply *dns.Msg) error {
 		return fmt.Errorf("answer is empty")
 	} else if len(reply.Question) != 1 {
 		return fmt.Errorf("too many/few questions (%d)", len(reply.Question))
+	} else if reply.Truncated {
+		return fmt.Errorf("truncated reply")
 	} else if reply.Question[0] != question {
 		return fmt.Errorf(
 			"reply question does not match: asked %v, got %v",
