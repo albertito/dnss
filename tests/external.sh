@@ -218,7 +218,9 @@ for server in \
 	"https://cloudflare-dns.com/dns-query" \
 	"https://dns.google/dns-query" \
 	"https://dns.quad9.net/dns-query" \
-	"https://doh.powerdns.org" \
+	"https://doh.it.ahadns.net/dns-query" \
+	"https://dns.alidns.com/dns-query" \
+	"https://odvr.nic.cz/dns-query" \
 	;
 do
 	echo "## DoH against $server"
