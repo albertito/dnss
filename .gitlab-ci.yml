@@ -10,9 +10,9 @@ stages:
     - go test ./...
     - go test -race ./...
 
-golang_1.13:
+golang_1.15:
   <<: *golang
-  image: golang:1.13  # Oldest supported version (for now).
+  image: golang:1.15  # Oldest supported version (for now).
 
 golang_latest:
   <<: *golang
