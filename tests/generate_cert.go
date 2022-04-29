@@ -23,8 +23,6 @@ import (
 	"os"
 	"strings"
 	"time"
-
-	"golang.org/x/net/idna"
 )
 
 var (
@@ -83,13 +81,7 @@ func main() {
 		if ip := net.ParseIP(h); ip != nil {
 			template.IPAddresses = append(template.IPAddresses, ip)
 		} else {
-			// We use IDNA-encoded DNS names, otherwise the TLS library won't
-			// load the certificates.
-			ih, err := idna.ToASCII(h)
-			if err != nil {
-				log.Fatalf("host %q cannot be IDNA-encoded: %v", h, err)
-			}
-			template.DNSNames = append(template.DNSNames, ih)
+			template.DNSNames = append(template.DNSNames, h)
 		}
 	}
 
