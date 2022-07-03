@@ -89,7 +89,10 @@ func TestBasic(t *testing.T) {
 }
 
 func TestInvalidServer(t *testing.T) {
-	r := mustNewDoH(t, "http://0.0.0.0/")
+	ts := httptest.NewServer(nil)
+	ts.Close()
+
+	r := mustNewDoH(t, ts.URL)
 	queryExpectErr(t, r, "test.blah.", "POST failed:")
 }
 
