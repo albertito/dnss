@@ -35,6 +35,9 @@ integration_stable:
     expire_in: 1 hour
     paths:
       - docker-out/
+  # The test contacts external services so it can be flaky; retry failures to
+  # prevent false negatives.
+  retry: 2
 
 
 # Integration test, using the latest module versions.
@@ -53,3 +56,4 @@ integration_latest:
     expire_in: 1 hour
     paths:
       - docker-out/
+  retry: 2
