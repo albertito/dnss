@@ -1,5 +1,7 @@
 .*.swp
 .*
+!.gitignore
+!.github
 
 # Ignore the resulting binary.
 dnss

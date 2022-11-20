@@ -1,0 +1,42 @@
+name: "tests"
+
+on:
+  push:
+    branches: [ "master", "next" ]
+  pull_request:
+    # The branches below must be a subset of the branches above
+    branches: [ "master", "next" ]
+  schedule:
+    - cron: '41 22 * * 6'
+
+jobs:
+  gotests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    strategy:
+      matrix:
+        # Oldest supported version, and latest.
+        go-version: [ '1.15.x', '1.x' ]
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v3
+        with:
+          go-version: ${{ matrix.go-version }}
+          check-latest: true
+          cache: true
+
+      - run: go test ./...
+      - run: go test -race ./...
+
+  integration:
+    needs: gotests
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v3
+      - name: Build test image
+        run: |
+          docker info
+          docker build -t dnss-test -f tests/Dockerfile .
+      - name: Run tests
+        run: docker run --name test1 dnss-test
