@@ -71,21 +71,21 @@ function resolve() {
 	if ! grep -E -i -q '^example.com.*A'  .dig.log; then
 		echo "----- FAILED"
 		cat .dig.log
-		false
+		return 1
 	fi
 
 	kdig @127.0.0.1:1053 +notcp  example.com a > .dig.log
 	if ! grep -E -i -q '^example.com.*A'  .dig.log; then
 		echo "----- FAILED"
 		cat .dig.log
-		false
+		return 1
 	fi
 
 	kdig @127.0.0.1:1053 +notcp  com.ar NS > .dig.log
 	if ! grep -E -i -q '^com.ar.*NS'  .dig.log; then
 		echo "----- FAILED"
 		cat .dig.log
-		false
+		return 1
 	fi
 
 	# The response exceeds the default UDP size (512b), so it should fall back
@@ -94,12 +94,12 @@ function resolve() {
 	if ! grep -E -i -q '^google.com.*TXT'  .dig.log; then
 		echo "----- FAILED (missing response)"
 		cat .dig.log
-		false
+		return 1
 	fi
 	if ! grep -E -i -q 'retrying over TCP'  .dig.log; then
 		echo "----- FAILED (did not use TCP)"
 		cat .dig.log
-		false
+		return 1
 	fi
 
 	# Same as above, but we explicitly are ok with a 2k response, which
@@ -108,12 +108,12 @@ function resolve() {
 	if ! grep -E -i -q '^google.com.*TXT'  .dig.log; then
 		echo "----- FAILED (missing response)"
 		cat .dig.log
-		false
+		return 1
 	fi
 	if grep -E -i -q 'retrying over TCP'  .dig.log; then
 		echo "----- FAILED (used TCP)"
 		cat .dig.log
-		false
+		return 1
 	fi
 }
 
@@ -226,7 +226,14 @@ do
 	echo "## DoH against $server"
 	dnss -enable_dns_to_https -dns_listen_addr "localhost:1053" \
 		-https_upstream "$server"
-	resolve
+	# Retry once after giving it some time, because the test environment
+	# and/or the server may be flaky.
+	if ! resolve; then
+		echo
+		echo "### Retrying in 1s"
+		sleep 1
+		resolve
+	fi
 	kill $PID
 done
 
