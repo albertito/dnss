@@ -33,6 +33,9 @@ var (
 
 	dnsUnqualifiedUpstream = flag.String("dns_unqualified_upstream", "",
 		"DNS server to forward unqualified requests to")
+	dnsServerForDomain = flag.String("dns_server_for_domain", "",
+		"DNS server to use for a specific domain, "+
+			`in the form of "domain1:addr1, domain2:addr, ..."`)
 
 	fallbackUpstream = flag.String("fallback_upstream", "8.8.8.8:53",
 		"DNS server used to resolve domains in -https_upstream"+
@@ -104,7 +107,14 @@ func main() {
 			cr.RegisterDebugHandlers()
 			resolver = cr
 		}
-		dth := dnsserver.New(*dnsListenAddr, resolver, *dnsUnqualifiedUpstream)
+
+		overrides, err := dnsserver.DomainMapFromString(*dnsServerForDomain)
+		if err != nil {
+			log.Fatalf("-dns_server_for_domain is not valid: %v", err)
+		}
+
+		dth := dnsserver.New(*dnsListenAddr, resolver,
+			*dnsUnqualifiedUpstream, overrides)
 
 		wg.Add(1)
 		go func() {

@@ -44,18 +44,20 @@ func init() {
 // Server implements a DNS proxy, which will (mostly) use the given resolver
 // to resolve queries.
 type Server struct {
-	Addr        string
-	unqUpstream string
-	resolver    Resolver
+	Addr            string
+	unqUpstream     string
+	serverOverrides DomainMap
+	resolver        Resolver
 }
 
 // New *Server, which will listen on addr, use resolver as the backend
 // resolver, and use unqUpstream to resolve unqualified queries.
-func New(addr string, resolver Resolver, unqUpstream string) *Server {
+func New(addr string, resolver Resolver, unqUpstream string, serverOverrides DomainMap) *Server {
 	return &Server{
-		Addr:        addr,
-		resolver:    resolver,
-		unqUpstream: unqUpstream,
+		Addr:            addr,
+		resolver:        resolver,
+		unqUpstream:     unqUpstream,
+		serverOverrides: serverOverrides,
 	}
 }
 
@@ -71,6 +73,22 @@ func (s *Server) Handler(w dns.ResponseWriter, r *dns.Msg) {
 	if len(r.Question) != 1 {
 		tr.Printf("len(Q) != 1, failing")
 		dns.HandleFailed(w, r)
+		return
+	}
+
+	// If the domain has a server override, forward to it instead.
+	override, ok := s.serverOverrides.GetMostSpecific(r.Question[0].Name)
+	if ok {
+		tr.Printf("override found: %q", override)
+		u, err := dns.Exchange(r, override)
+		if err == nil {
+			tr.Answer(u)
+			s.writeReply(tr, w, r, u)
+		} else {
+			tr.Printf("override server returned error: %v", err)
+			dns.HandleFailed(w, r)
+		}
+
 		return
 	}
 

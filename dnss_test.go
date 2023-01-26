@@ -66,7 +66,7 @@ func Setup(tb testing.TB) string {
 	// IP addresses directly in the http requests, the fallback resolver
 	// should not be needed.
 	r := httpresolver.NewDoH(HTTPSToDNSURL, "", "0.0.0.0:0")
-	dtoh := dnsserver.New(DNSToHTTPSAddr, r, "")
+	dtoh := dnsserver.New(DNSToHTTPSAddr, r, "", nil)
 	go dtoh.ListenAndServe()
 
 	if err := testutil.WaitForDNSServer(DNSToHTTPSAddr); err != nil {

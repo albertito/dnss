@@ -75,6 +75,10 @@ dnss -enable_dns_to_https -https_upstream="https://1.1.1.1/dns-query"
 
 # Use Google's dns.google:
 dnss -enable_dns_to_https -https_upstream="https://dns.google/dns-query"
+
+# Use the default HTTPS URL for all resolutions, except for domain "myhome"
+# which is resolved via a local DNS server.
+dnss -enable_dns_to_https -dns_server_for_domain="myhome:10.0.1.1:53"
 ```
 
 ### HTTPS server
