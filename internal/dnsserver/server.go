@@ -7,7 +7,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"net"
-	"strings"
 	"sync"
 
 	"blitiri.com.ar/go/dnss/internal/trace"
@@ -80,7 +79,7 @@ func (s *Server) Handler(w dns.ResponseWriter, r *dns.Msg) {
 	//  - There's only one question in the request, to keep things simple.
 	//  - The question is unqualified (only one '.' in the name).
 	useUnqUpstream := s.unqUpstream != "" &&
-		strings.Count(r.Question[0].Name, ".") <= 1
+		dns.CountLabel(r.Question[0].Name) <= 1
 	if useUnqUpstream {
 		u, err := dns.Exchange(r, s.unqUpstream)
 		if err == nil {
