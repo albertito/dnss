@@ -14,15 +14,24 @@ ExecStart=/usr/local/bin/dnss \
 Type = simple
 Restart = always
 
-# The user can be created with no permissions using:
-#
-#   sudo useradd -U dnss -M -d /nonexistent -s /bin/false
+# Use a dynamic user, since dnss doesn't use any persistent storage anyway.
+DynamicUser = true
 User = dnss
 Group = dnss
 
-# Simple security measures just in case.
-CapabilityBoundingSet = CAP_NET_BIND_SERVICE
-ProtectSystem=full
+# Some security measures to reduce unnecessary exposure, just in case.
+CapabilityBoundingSet =
+ProtectSystem = strict
+PrivateUsers = true
+PrivateDevices = true
+RestrictNamespaces = true
+ProtectControlGroups = yes
+ProtectProc = invisible
+ProcSubset = pid
+SystemCallArchitectures = native
+SystemCallFilter = @system-service
+ProtectKernelModules = yes
+ProtectKernelTunables = yes
 
 
 [Install]
