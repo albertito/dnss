@@ -16,7 +16,10 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"os"
+	"os/signal"
 	"sync"
+	"syscall"
 
 	"blitiri.com.ar/go/dnss/internal/dnsserver"
 	"blitiri.com.ar/go/dnss/internal/httpresolver"
@@ -78,6 +81,8 @@ var (
 func main() {
 	flag.Parse()
 	log.Init()
+
+	go signalHandler()
 
 	if *monitoringListenAddr != "" {
 		launchMonitoringServer(*monitoringListenAddr)
@@ -141,6 +146,18 @@ func main() {
 	}
 
 	wg.Wait()
+}
+
+func signalHandler() {
+	signals := make(chan os.Signal, 1)
+	signal.Notify(signals, syscall.SIGTERM, syscall.SIGINT)
+
+	for sig := range signals {
+		switch sig {
+		case syscall.SIGTERM, syscall.SIGINT:
+			log.Fatalf("Got signal to exit: %v", sig)
+		}
+	}
 }
 
 func launchMonitoringServer(addr string) {

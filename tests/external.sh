@@ -21,9 +21,8 @@ trap "kill 0" EXIT # Kill children on exit.
 cd "$(realpath `dirname ${0}`)/../"
 
 # Build the dnss binary.
-if [ "$COVER_DIR" != "" ]; then
-	go test -covermode=count -coverpkg=./... -c -tags coveragebin
-	mv dnss.test dnss
+if [ "${GOCOVERDIR}" != "" ]; then
+	go build -cover -covermode=count -o dnss .
 else
 	go build
 fi
@@ -31,14 +30,7 @@ fi
 
 # Run dnss in the background (sets $PID to its process id).
 function dnss() {
-	# Set the coverage arguments each time, as we don't want the different
-	# runs to override the generated profile.
-	if [ "$COVER_DIR" != "" ]; then
-		COVER_ARGS="-test.run=^TestRunMain$ \
-			-test.coverprofile=$COVER_DIR/it-`date +%s.%N`.out"
-	fi
-
-	$SYSTEMD_ACTIVATE ./dnss $COVER_ARGS \
+	$SYSTEMD_ACTIVATE ./dnss \
 		-v 3 -monitoring_listen_addr :1900 \
 		"$@" > .dnss.log 2>&1 &
 	PID=$!
