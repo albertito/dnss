@@ -210,7 +210,7 @@ for server in \
 	"https://cloudflare-dns.com/dns-query" \
 	"https://dns.google/dns-query" \
 	"https://dns.quad9.net/dns-query" \
-	"https://doh.it.ahadns.net/dns-query" \
+	"https://doh.nl.ahadns.net/dns-query" \
 	"https://dns.alidns.com/dns-query" \
 	"https://odvr.nic.cz/dns-query" \
 	;
