@@ -246,7 +246,7 @@ kill $PID
 # systemd socket activation tests must check one protocol at a time, due to
 # systemd-socket-activate not being able to listen on both.
 echo "## Socket activation via systemd: TCP"
-SYSTEMD_ACTIVATE="systemd-socket-activate -l 1053"
+SYSTEMD_ACTIVATE="systemd-socket-activate -E GOCOVERDIR -l 1053"
 dnss -enable_dns_to_https -dns_listen_addr "systemd"
 
 wait_until_ready tcp 1053
@@ -256,7 +256,7 @@ grep -E -q '^example.com.*A'  .dig.log
 kill $PID
 
 echo "## Socket activation via systemd: UDP"
-SYSTEMD_ACTIVATE="systemd-socket-activate -d -l 1053"
+SYSTEMD_ACTIVATE="systemd-socket-activate -E GOCOVERDIR -d -l 1053"
 dnss -enable_dns_to_https -dns_listen_addr "systemd"
 
 sleep 0.2
