@@ -109,11 +109,9 @@ function resolve() {
 	fi
 }
 
-# HTTP GET, using wget.
+# wget wrapper, for convenience.
 function get() {
-	URL=$1
-
-	wget -O.wget.out $URL > .wget.log 2>&1
+	wget -O.wget.out "$@" > .wget.log 2>&1
 }
 
 function generate_certs() {
@@ -171,6 +169,14 @@ fi
 
 if get "http://localhost:1999/resolve?nothing"; then
 	echo "GET with nonsense query did not fail"
+	exit 1
+fi
+
+if get --post-data "dns=q80BAAABAAAAAAAAA3d3dwdleGFtcGxlA2NvbQAAAQAB" \
+	--header "Content-Type: "\
+	"http://localhost:1999/resolve";
+then
+	echo "POST with invalid content type did not fail"
 	exit 1
 fi
 
