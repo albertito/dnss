@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"reflect"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -128,6 +129,50 @@ func TestFailedQueries(t *testing.T) {
 	if !statsEquals(2, 0, 2) {
 		t.Errorf("bad stats: %v", dumpStats())
 	}
+}
+
+func TestWantToCache(t *testing.T) {
+	query := newQuery("test.", dns.TypeA)
+	q := query.Question[0]
+	reply := newReply(mustNewRR(t, "test. A 1.2.3.4"))
+	reply.Question = []dns.Question{q}
+
+	if err := wantToCache(q, reply); err != nil {
+		t.Errorf("wantToCache failed on cacheable request: %v", err)
+	}
+
+	r := reply.Copy()
+	r.Rcode = dns.RcodeBadName
+	checkWantToCache(t, q, r, "unsuccessful query")
+
+	r = reply.Copy()
+	r.Response = false
+	checkWantToCache(t, q, r, "response = false")
+
+	r = reply.Copy()
+	r.Opcode = dns.OpcodeUpdate
+	checkWantToCache(t, q, r, "opcode")
+
+	r = reply.Copy()
+	r.Answer = []dns.RR{}
+	checkWantToCache(t, q, r, "answer is empty")
+
+	r = reply.Copy()
+	r.Truncated = true
+	checkWantToCache(t, q, r, "truncated reply")
+
+	r = reply.Copy()
+	r.Question = []dns.Question{q, q}
+	checkWantToCache(t, q, r, "too many/few questions (2)")
+
+	r = reply.Copy()
+	r.Question = []dns.Question{}
+	checkWantToCache(t, q, r, "too many/few questions (0)")
+
+	r = reply.Copy()
+	r.Question = []dns.Question{
+		dns.Question{"other.", dns.TypeMX, dns.ClassINET}}
+	checkWantToCache(t, q, r, "reply question does not match")
 }
 
 // Test that we handle the cache filling up.
@@ -295,6 +340,14 @@ func queryFail(t *testing.T, c *cachingResolver) *dns.Msg {
 	}
 
 	return resp
+}
+
+func checkWantToCache(t *testing.T, q dns.Question, r *dns.Msg, exp string) {
+	t.Helper()
+	err := wantToCache(q, r)
+	if !strings.Contains(err.Error(), exp) {
+		t.Errorf("q:%v r:%v expected:%q got:%v", q, r, exp, err)
+	}
 }
 
 func mustNewRR(tb testing.TB, s string) dns.RR {
