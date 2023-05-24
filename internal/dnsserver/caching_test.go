@@ -171,7 +171,7 @@ func TestWantToCache(t *testing.T) {
 
 	r = reply.Copy()
 	r.Question = []dns.Question{
-		dns.Question{"other.", dns.TypeMX, dns.ClassINET}}
+		{"other.", dns.TypeMX, dns.ClassINET}}
 	checkWantToCache(t, q, r, "reply question does not match")
 }
 
