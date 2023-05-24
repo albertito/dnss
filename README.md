@@ -9,7 +9,7 @@ on laptops and small/home networks.
 
 It can also act as a DoH server, in case you want end to end control.
 
-[![Tests Status](https://img.shields.io/github/checks-status/albertito/dnss/master)](https://github.com/albertito/dnss/actions)
+[![Tests status](https://github.com/albertito/dnss/actions/workflows/tests.yaml/badge.svg?branch=master)](https://github.com/albertito/dnss/actions)
 [![Go Report Card](https://goreportcard.com/badge/github.com/albertito/dnss)](https://goreportcard.com/report/github.com/albertito/dnss)
 
 
