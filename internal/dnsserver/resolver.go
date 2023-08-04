@@ -121,7 +121,7 @@ func (c *cachingResolver) DumpCache(w http.ResponseWriter, r *http.Request) {
 	for q, ans := range c.answer {
 		// Only include names and records if we are running verbosily.
 		name := "<hidden>"
-		if log.V(3) {
+		if log.V(1) {
 			name = q.Name
 		}
 
@@ -131,7 +131,7 @@ func (c *cachingResolver) DumpCache(w http.ResponseWriter, r *http.Request) {
 		ttl := getTTL(ans)
 		fmt.Fprintf(buf, "   expires in %s (%s)\n", ttl, time.Now().Add(ttl))
 
-		if log.V(3) {
+		if log.V(1) {
 			for _, rr := range ans {
 				fmt.Fprintf(buf, "   %s\n", rr.String())
 			}

@@ -63,10 +63,11 @@ func New(addr string, resolver Resolver, unqUpstream string, serverOverrides Dom
 
 // Handler for the incoming DNS queries.
 func (s *Server) Handler(w dns.ResponseWriter, r *dns.Msg) {
-	tr := trace.New("dnsserver", "Handler")
+	tr := trace.New("dnsserver.Handler",
+		w.RemoteAddr().Network()+" "+w.RemoteAddr().String())
 	defer tr.Finish()
 
-	tr.Printf("from:%v   id:%v", w.RemoteAddr(), r.Id)
+	tr.Printf("id:%v", r.Id)
 	tr.Question(r.Question)
 
 	// We only support single-question queries.

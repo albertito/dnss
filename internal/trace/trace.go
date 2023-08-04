@@ -3,24 +3,14 @@ package trace
 
 import (
 	"fmt"
-	"net/http"
 	"strconv"
 	"strings"
 
 	"blitiri.com.ar/go/log"
 	"github.com/miekg/dns"
 
-	nettrace "golang.org/x/net/trace"
+	nettrace "blitiri.com.ar/go/dnss/internal/nettrace"
 )
-
-func init() {
-	// golang.org/x/net/trace has its own authorization which by default only
-	// allows localhost. This can be confusing and limiting in environments
-	// which access the monitoring server remotely.
-	nettrace.AuthRequest = func(req *http.Request) (any, sensitive bool) {
-		return true, true
-	}
-}
 
 // A Trace represents an active request.
 type Trace struct {
@@ -42,14 +32,17 @@ func New(family, title string) *Trace {
 
 // Printf adds this message to the trace's log.
 func (t *Trace) Printf(format string, a ...interface{}) {
-	t.printf(1, format, a...)
+	t.t.Printf(format, a...)
 }
 
-func (t *Trace) printf(n int, format string, a ...interface{}) {
-	t.t.LazyPrintf(format, a...)
+func (t *Trace) lprintf(n int, format string, a ...interface{}) {
+	t.t.Printf(format, a...)
 
-	log.Log(log.Debug, n+1, "%s %s: %s", t.family, t.title,
-		quote(fmt.Sprintf(format, a...)))
+	// If -v=3, also log to the main log.
+	if log.V(3) {
+		log.Log(log.Debug, n+1, "%s %s: %s", t.family, t.title,
+			quote(fmt.Sprintf(format, a...)))
+	}
 }
 
 // Errorf adds this message to the trace's log, with an error level.
@@ -57,7 +50,7 @@ func (t *Trace) Errorf(format string, a ...interface{}) error {
 	// Note we can't just call t.Error here, as it breaks caller logging.
 	err := fmt.Errorf(format, a...)
 	t.t.SetError()
-	t.t.LazyPrintf("error: %v", err)
+	t.t.Printf("error: %v", err)
 
 	log.Log(log.Info, 1, "%s %s: error: %s", t.family, t.title,
 		quote(err.Error()))
@@ -68,7 +61,7 @@ func (t *Trace) Errorf(format string, a ...interface{}) error {
 // trace's log.
 func (t *Trace) Error(err error) error {
 	t.t.SetError()
-	t.t.LazyPrintf("error: %v", err)
+	t.t.Printf("error: %v", err)
 
 	log.Log(log.Info, 1, "%s %s: error: %s", t.family, t.title,
 		quote(err.Error()))
@@ -87,11 +80,9 @@ func (t *Trace) Finish() {
 
 // Question adds the given question to the trace.
 func (t *Trace) Question(qs []dns.Question) {
-	if !log.V(3) {
-		return
+	if log.V(1) {
+		t.lprintf(1, questionsToString(qs))
 	}
-
-	t.printf(1, questionsToString(qs))
 }
 
 func questionsToString(qs []dns.Question) string {
@@ -105,13 +96,13 @@ func questionsToString(qs []dns.Question) string {
 
 // Answer adds the given DNS answer to the trace.
 func (t *Trace) Answer(m *dns.Msg) {
-	if !log.V(3) {
+	if !log.V(1) {
 		return
 	}
 
-	t.printf(1, m.MsgHdr.String())
+	t.lprintf(1, m.MsgHdr.String())
 	for _, rr := range m.Answer {
-		t.printf(1, rr.String())
+		t.lprintf(1, rr.String())
 	}
 }
 

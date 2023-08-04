@@ -99,7 +99,7 @@ func (r *httpsResolver) Init() error {
 	r.client = client
 	r.mu.Unlock()
 
-	tr := trace.New("httpresolver", r.Upstream.String())
+	tr := trace.New("httpresolver.Client", r.Upstream.String())
 	tr.Printf("Init complete, client: %p", r.client)
 	tr.Finish()
 
@@ -177,7 +177,7 @@ func (r *httpsResolver) maybeRotateClient() {
 	// The time chosen here combines with the transport timeouts set above, so
 	// we never have too many in-flight connections.
 	if time.Since(r.firstErr) > 10*time.Second {
-		tr := trace.New("httpresolver", r.Upstream.String())
+		tr := trace.New("httpresolver.Client", r.Upstream.String())
 		defer tr.Finish()
 
 		tr.Printf("Rotating client after %s of errors: %p",
@@ -200,7 +200,7 @@ func (r *httpsResolver) Query(req *dns.Msg, tr *trace.Trace) (*dns.Msg, error) {
 		return nil, fmt.Errorf("cannot pack query: %v", err)
 	}
 
-	if log.V(3) {
+	if log.V(1) {
 		tr.Printf("DoH POST %v", r.Upstream)
 	}
 

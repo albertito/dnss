@@ -191,13 +191,12 @@ func BenchmarkSimple(b *testing.B) {
 
 func TestMonitoringServer(t *testing.T) {
 	addr := testutil.GetFreePort()
-	launchMonitoringServer(addr)
+	go monitoringServer(addr)
 	testutil.WaitForHTTPServer(addr)
 
 	checkGet(t, "http://"+addr+"/")
-	checkGet(t, "http://"+addr+"/debug/requests")
+	checkGet(t, "http://"+addr+"/debug/traces")
 	checkGet(t, "http://"+addr+"/debug/pprof/goroutine")
-	checkGet(t, "http://"+addr+"/debug/flags")
 	checkGet(t, "http://"+addr+"/debug/vars")
 
 	// Check that we emit 404 for non-existing paths.

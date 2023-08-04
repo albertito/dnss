@@ -144,13 +144,13 @@ mv .dnss.log .dnss.http.log
 
 wait_until_ready tcp 1999
 
-echo "## Checking /debug/flags"
-if ! get "http://localhost:1900/debug/flags"; then
-	echo "Failed to get /debug/flags"
+echo "## Checking monitoring server /"
+if ! get "http://localhost:1900/"; then
+	echo "Failed to get /"
 	exit 1
 fi
 if ! grep -q "insecure_http_server=true" .wget.out; then
-	echo "/debug/flags did not contain expected flags (see .wget.out)"
+	echo "/ did not contain expected flags (see .wget.out)"
 	exit 1
 fi
 
