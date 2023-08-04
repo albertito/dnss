@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # This is a small utility that helps run and diff benchmarks, using
-# "go test -bench" and "benchcmp".
+# "go test -bench" and "benchstat".
 #
 # It's only used for development and not meant to be portable, or have a
 # stable interface.
@@ -11,11 +11,7 @@
 #   ./tests/bench
 #
 #   # Diff between two recorded commits.
-#   ./tests/bench diff 8b25916 HEAD
-#
-#   # Run the benchmarks without recording, and compare against a commit.
-#   ./tests/bench rundiff 8b25916
-#
+#   benchstat BASE=.bench-history/... LAST=.bench-history/last
 
 set -e
 
@@ -24,97 +20,7 @@ cd "$(git rev-parse --show-toplevel)"
 BDIR=".bench-history"
 mkdir -p $BDIR
 
-# Get a filename based on the current commit.
-function commit_fname() {
-	git log --date=format:"%F-%H:%M" --pretty=format:"%cd__%h__%f" -1 $1
-}
+FNAME="$BDIR/$(date "+%Y-%m-%d-%H:%M")-$(git describe --always --dirty)"
 
-
-MODE=bench
-RUN_COUNT=3
-BEST=
-NO_RECORD=
-
-# Don't record results for a dirty tree.
-# Note this tool is explicitly excluded so we can easily test old commits.
-DIRTY=$(git status --porcelain | grep -v tests/bench | grep -v "^??" | wc -l)
-if [ "$DIRTY" -gt 0 ]; then
-		echo "Dirty tree, not recording results"
-		NO_RECORD=1
-fi
-
-while getopts "m:c:1rbn" OPT ; do
-	case $OPT in
-		m)
-			MODE=$OPTARG
-			;;
-		1)
-			RUN_COUNT=1
-			;;
-		c)
-			RUN_COUNT=$OPTARG
-			;;
-		b)
-			BEST="-best"
-			;;
-		n)
-			NO_RECORD=1
-			;;
-		\?)
-			exit 1
-			;;
-	esac
-done
-
-shift $((OPTIND-1))
-
-if [ $1 ]; then
-	MODE=$1
-	shift
-fi
-
-if [ $MODE == bench ]; then
-	FNAME=$BDIR/$(commit_fname)
-	RAWFNAME=$BDIR/.$(commit_fname).raw
-
-	if [ $NO_RECORD ]; then
-		go test -run=NONE -bench=. -benchmem ./...
-		exit
-	fi
-
-	echo -n "Running: "
-	echo > "$RAWFNAME"
-	for i in `seq $RUN_COUNT`; do
-		go test -run=NONE -bench=. -benchmem ./... >> "$RAWFNAME"
-		echo -n "$i "
-	done
-	echo
-
-	# Filter and sort the results to make them more succint and easier to
-	# compare.
-	cat "$RAWFNAME" | grep allocs | sort > "$FNAME"
-
-	cat "$FNAME"
-
-elif [ $MODE == diff ]; then
-	F1=$BDIR/$(commit_fname $1)
-	F2=$BDIR/$(commit_fname $2)
-	benchcmp $BEST "$F1" "$F2"
-
-elif [ $MODE == rundiff ]; then
-	TMPF=$(mktemp)
-	F1=$BDIR/$(commit_fname $1)
-
-	go test -run=NONE -bench=. -benchmem ./... > $TMPF
-	benchcmp -best "$F1" "$TMPF"
-
-	rm $TMPF
-
-elif [ $MODE == ls ]; then
-	cd $BDIR
-	ls -1
-else
-	echo "Unknown mode $MODE"
-	exit 1
-fi
-
+echo file: $FNAME
+go test -bench=. ./... "$@" | tee $FNAME
