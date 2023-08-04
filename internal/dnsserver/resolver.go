@@ -5,6 +5,7 @@ import (
 	"expvar"
 	"fmt"
 	"net/http"
+	"sort"
 	"sync"
 	"time"
 
@@ -118,7 +119,21 @@ func (c *cachingResolver) DumpCache(w http.ResponseWriter, r *http.Request) {
 	buf := bytes.NewBuffer(nil)
 
 	c.mu.RLock()
-	for q, ans := range c.answer {
+
+	// Sort output by expiration, so it is somewhat consistent and practical
+	// to read.
+	qs := []dns.Question{}
+	for q := range c.answer {
+		qs = append(qs, q)
+	}
+	sort.Slice(qs, func(i, j int) bool {
+		return getTTL(c.answer[qs[i]]) < getTTL(c.answer[qs[j]])
+	})
+
+	// Go through the sorted list and dump the entries.
+	for _, q := range qs {
+		ans := c.answer[q]
+
 		// Only include names and records if we are running verbosily.
 		name := "<hidden>"
 		if log.V(1) {
