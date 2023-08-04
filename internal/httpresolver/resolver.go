@@ -36,6 +36,7 @@ type httpsResolver struct {
 	mu       sync.Mutex
 	client   *http.Client
 	firstErr time.Time
+	tr       *trace.Trace
 }
 
 var errAppendingCerts = fmt.Errorf("error appending certificates")
@@ -97,11 +98,9 @@ func (r *httpsResolver) Init() error {
 
 	r.mu.Lock()
 	r.client = client
+	r.tr = trace.New("httpresolver.Client", r.Upstream.String())
+	r.tr.Printf("Init complete, client: %p", r.client)
 	r.mu.Unlock()
-
-	tr := trace.New("httpresolver.Client", r.Upstream.String())
-	tr.Printf("Init complete, client: %p", r.client)
-	tr.Finish()
 
 	return err
 }
@@ -148,8 +147,11 @@ func (r *httpsResolver) setClientError(err error) {
 
 	if err == nil {
 		r.firstErr = time.Time{}
-	} else if r.firstErr.IsZero() {
-		r.firstErr = time.Now()
+	} else {
+		if r.firstErr.IsZero() {
+			r.firstErr = time.Now()
+		}
+		r.tr.Printf("Client error: %v", err)
 	}
 }
 
@@ -177,20 +179,22 @@ func (r *httpsResolver) maybeRotateClient() {
 	// The time chosen here combines with the transport timeouts set above, so
 	// we never have too many in-flight connections.
 	if time.Since(r.firstErr) > 10*time.Second {
-		tr := trace.New("httpresolver.Client", r.Upstream.String())
-		defer tr.Finish()
-
-		tr.Printf("Rotating client after %s of errors: %p",
+		// Close the old trace, and create a new one.
+		// This makes it easier to analyze the client behaviour in the traces.
+		r.tr.Errorf("Rotating client after %s of errors: %p",
 			time.Since(r.firstErr), r.client)
+		r.tr.Finish()
+
+		r.tr = trace.New("httpresolver.Client", r.Upstream.String())
 		client, err := r.newClient()
 		if err != nil {
-			tr.Errorf("Error creating new client: %v", err)
+			r.tr.Errorf("Error creating new client: %v", err)
 			return
 		}
 
 		r.client = client
 		r.firstErr = time.Time{}
-		tr.Printf("Rotated client: %p", r.client)
+		r.tr.Printf("Rotated client: %p", r.client)
 	}
 }
 
