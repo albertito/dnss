@@ -40,3 +40,12 @@ jobs:
           docker build -t dnss-test -f tests/Dockerfile .
       - name: Run tests
         run: docker run --name test1 dnss-test
+      - name: Extract coverage results
+        run: >
+          docker cp test1:/go/src/blitiri.com.ar/go/dnss/.coverage/merged.out
+          .
+      - name: Upload coverage results
+        uses: codecov/codecov-action@v3
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          file: merged.out
