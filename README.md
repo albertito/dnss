@@ -41,21 +41,22 @@ sudo apt install dnss
 
 ### Manual install
 
-To download and build the binary:
+To clone the repository and build the binary:
 
 ```shell
-go install blitiri.com.ar/go/dnss
+git clone https://blitiri.com.ar/repos/dnss
+cd dnss
+go build
 ```
 
 And if you want to configure the daemon to be automatically run by systemd:
 
 ```shell
 # Copy the binary to a system-wide location.
-sudo cp "$GOPATH/bin/dnss" /usr/local/bin/
+sudo cp dnss /usr/local/bin/
 
 # Set it up in systemd.
-sudo cp "$GOPATH"/src/blitiri.com.ar/go/dnss/etc/systemd/dns-to-https/* \
-	/etc/systemd/system/
+sudo cp etc/systemd/dns-to-https/*  /etc/systemd/system/
 
 sudo systemctl dnss enable
 ```
