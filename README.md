@@ -61,6 +61,13 @@ sudo cp etc/systemd/dns-to-https/*  /etc/systemd/system/
 sudo systemctl dnss enable
 ```
 
+On Fedora, SELinux might cause hidden errors. In that case, run
+
+```sh
+sudo semanage fcontext -a -t bin_t "/usr/local/bin/dnss"
+sudo restorecon -v /usr/local/bin/dnss
+```
+
 
 ## Examples
 
