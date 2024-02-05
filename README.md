@@ -61,6 +61,14 @@ sudo cp etc/systemd/dns-to-https/*  /etc/systemd/system/
 sudo systemctl dnss enable
 ```
 
+On systems with SELinux, like Fedora, you might see hidden errors. In that
+case, run this to set the security context for the binary:
+
+```sh
+sudo semanage fcontext -a -t bin_t "/usr/local/bin/dnss"
+sudo restorecon -v /usr/local/bin/dnss
+```
+
 
 ## Examples
 
