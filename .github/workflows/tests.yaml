@@ -18,8 +18,8 @@ jobs:
         # Oldest supported version, and latest.
         go-version: [ '1.18.x', '1.x' ]
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-go@v3
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
         with:
           go-version: ${{ matrix.go-version }}
           check-latest: true
@@ -33,7 +33,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Build test image
         run: |
           docker info
@@ -45,7 +45,7 @@ jobs:
           docker cp test1:/go/src/blitiri.com.ar/go/dnss/.coverage/merged.out
           .
       - name: Upload coverage results
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v4
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           file: merged.out
