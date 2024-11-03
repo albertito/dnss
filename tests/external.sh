@@ -82,8 +82,9 @@ function resolve() {
 
 	# The response exceeds the default UDP size (512b), so it should fall back
 	# to TCP. This exercises the truncating logic.
-	kdig @127.0.0.1:1053  google.com TXT > .dig.log 2>&1
-	if ! grep -E -i -q '^google.com.*TXT'  .dig.log; then
+	# Public amazon.com TXT records match this constraint.
+	kdig @127.0.0.1:1053  amazon.com TXT > .dig.log 2>&1
+	if ! grep -E -i -q '^amazon.com.*TXT'  .dig.log; then
 		echo "----- FAILED (missing response)"
 		cat .dig.log
 		return 1
@@ -94,8 +95,10 @@ function resolve() {
 		return 1
 	fi
 
-	# Same as above, but we explicitly are ok with a 2k response, which
-	# fits the reply. We check that we do NOT fall back to TCP.
+	# This is a zone that's large enough to exceed the default EDNS buffer
+	# size (1232 bytes), but within 2k, so if we explicitly are ok with a
+	# 2k response, we shouldn't fall back to TCP.
+	# Public google.com TXT records match this constraint.
 	kdig @127.0.0.1:1053 +bufsize=2048 google.com TXT > .dig.log 2>&1
 	if ! grep -E -i -q '^google.com.*TXT'  .dig.log; then
 		echo "----- FAILED (missing response)"
@@ -189,6 +192,7 @@ kill $HTTP_PID
 echo "## HTTPS with custom certificates"
 generate_certs upstream
 dnss -enable_https_to_dns \
+	-dns_upstream "127.0.0.1:1953" \
 	-https_key .certs/upstream/privkey.pem \
 	-https_cert .certs/upstream/fullchain.pem \
 	-https_server_addr "localhost:1999"
