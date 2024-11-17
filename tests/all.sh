@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # The tests are run from the repository root.
-cd "$(realpath `dirname ${0}`)/../"
+cd "$(realpath "$(dirname "$0")/../" )"
 
 set -ev
 

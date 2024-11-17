@@ -6,7 +6,7 @@
 set -e
 
 # The tests are run from the repository root.
-cd "$(realpath `dirname ${0}`)/../"
+cd "$(realpath "$(dirname "$0")/../" )"
 
 # Recreate the coverage output directory, to avoid including stale results
 # from previous runs.
@@ -19,7 +19,7 @@ go test \
 	-covermode=count \
 	-coverpkg=./... \
 	./... \
-	-args -test.gocoverdir=${COVER_DIR}/go/
+	-args -test.gocoverdir="${COVER_DIR}/go/"
 
 # Run external tests in coverage mode. They will run in coverage mode due to
 # $GOCOVERDIR being set.

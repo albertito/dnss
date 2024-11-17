@@ -18,7 +18,7 @@ trap "exit 2" INT  # Ctrl-C, make sure we fail in that case.
 trap "kill 0" EXIT # Kill children on exit.
 
 # The tests are run from the repository root.
-cd "$(realpath `dirname ${0}`)/../"
+cd "$(realpath "$(dirname "$0")/../" )"
 
 # Build the dnss binary.
 if [ "${GOCOVERDIR}" != "" ]; then
@@ -118,11 +118,11 @@ function get() {
 }
 
 function generate_certs() {
-	mkdir -p .certs/$1
+	mkdir -p ".certs/$1"
 	(
-		cd .certs/$1
+		cd ".certs/$1"
 		go run ../../tests/generate_cert.go \
-			-ca -duration=1h --host=$1
+			-ca -duration=1h --host="$1"
 	)
 }
 
