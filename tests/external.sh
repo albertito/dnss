@@ -227,15 +227,23 @@ do
 	echo "## DoH against $server"
 	dnss -enable_dns_to_https -dns_listen_addr "localhost:1053" \
 		-https_upstream "$server"
-	# Retry once after giving it some time, because the test environment
-	# and/or the server may be flaky.
-	if ! resolve; then
-		echo
-		echo "### Retrying in 1s"
-		sleep 1
-		resolve
-	fi
+
+	# Retry a few times with some delay in between, because the test
+	# environment and/or the server may be flaky.
+	success=0
+	for delay_sec in 0 1 3 5 10; do
+		sleep $delay_sec
+		if resolve; then
+			success=1
+			break
+		fi
+	done
+
 	kill $PID
+	if [ "$success" -ne 1 ]; then
+		echo "Failed to resolve with upstream $server"
+		exit 1
+	fi
 done
 
 
