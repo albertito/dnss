@@ -112,6 +112,67 @@ func TestTTL(t *testing.T) {
 	}
 }
 
+// Test that we use the minimum TTL of all the RRs in the answer.
+func TestMinTTL(t *testing.T) {
+	r := testutil.NewTestResolver()
+	c := NewCachingResolver(r)
+	c.Init()
+	resetStats()
+
+	tr := trace.New("test", "TestMinTTL")
+	defer tr.Finish()
+
+	// Long-lived CNAME to a short-lived A: should not be cached, as the A
+	// TTL is below minTTL.
+	r.Response = newReply(mustNewRR(t, "test. 86400 CNAME cdn.test."))
+	r.Response.Answer = append(r.Response.Answer,
+		mustNewRR(t, "cdn.test. 30 A 1.2.3.4"))
+	req := newQuery("test.", dns.TypeA)
+	for i := 0; i < 2; i++ {
+		if _, err := c.Query(req, tr); err != nil {
+			t.Fatalf("query failed: %v", err)
+		}
+	}
+	if !statsEquals(2, 0, 2) {
+		t.Errorf("bad stats: %v", dumpStats())
+	}
+
+	// Same, but with an A TTL that is cacheable: all RRs should get it.
+	resetStats()
+	r.Response = newReply(mustNewRR(t, "test2. 86400 CNAME cdn.test."))
+	r.Response.Answer = append(r.Response.Answer,
+		mustNewRR(t, "cdn.test. 600 A 1.2.3.4"))
+	req = newQuery("test2.", dns.TypeA)
+	for i := 0; i < 2; i++ {
+		resp, err := c.Query(req, tr)
+		if err != nil {
+			t.Fatalf("query failed: %v", err)
+		}
+		for _, rr := range resp.Answer {
+			if rr.Header().Ttl != 600 {
+				t.Errorf("expected TTL 600, got %v", rr)
+			}
+		}
+	}
+	if !statsEquals(2, 1, 1) {
+		t.Errorf("bad stats: %v", dumpStats())
+	}
+
+	// TTLs with the most significant bit set should be treated as 0, so
+	// not cached.
+	resetStats()
+	r.Response = newReply(mustNewRR(t, "test3. 2147483648 A 1.2.3.4"))
+	req = newQuery("test3.", dns.TypeA)
+	for i := 0; i < 2; i++ {
+		if _, err := c.Query(req, tr); err != nil {
+			t.Fatalf("query failed: %v", err)
+		}
+	}
+	if !statsEquals(2, 0, 2) {
+		t.Errorf("bad stats: %v", dumpStats())
+	}
+}
+
 // Test that we don't cache failed queries.
 func TestFailedQueries(t *testing.T) {
 	r := testutil.NewTestResolver()

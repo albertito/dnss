@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"expvar"
 	"fmt"
+	"math"
 	"net/http"
 	"sort"
 	"sync"
@@ -253,22 +254,34 @@ func wantToCache(question dns.Question, reply *dns.Msg) error {
 }
 
 func limitTTL(answer []dns.RR) time.Duration {
-	// This assumes all RRs have the same TTL.  That may not be the case in
-	// theory, but we are ok not caring for this for now.
-	ttl := time.Duration(answer[0].Header().Ttl) * time.Second
+	// Use the minimum TTL of all the RRs, as the answer is only valid as
+	// long as all of them are. For example, a long-lived CNAME pointing to a
+	// short-lived A record.
+	//
+	// Starting from maxTTL caps long TTLs. This helps prevent cache
+	// pollution due to unused but long entries, as we don't do usage-based
+	// caching yet.
+	ttl := maxTTL
+	for _, rr := range answer {
+		rrTTL := rr.Header().Ttl
 
-	// This helps prevent cache pollution due to unused but long entries, as
-	// we don't do usage-based caching yet.
-	if ttl > maxTTL {
-		ttl = maxTTL
+		// RFC 2181 section 8: TTLs with the most significant bit set
+		// should be treated as 0.
+		if rrTTL > math.MaxInt32 {
+			rrTTL = 0
+		}
+
+		if t := time.Duration(rrTTL) * time.Second; t < ttl {
+			ttl = t
+		}
 	}
 
 	return ttl
 }
 
 func getTTL(answer []dns.RR) time.Duration {
-	// This assumes all RRs have the same TTL.  That may not be the case in
-	// theory, but we are ok not caring for this for now.
+	// This assumes all RRs have the same TTL, which is true for the cached
+	// answers because we set it with setTTL.
 	return time.Duration(answer[0].Header().Ttl) * time.Second
 }
 
