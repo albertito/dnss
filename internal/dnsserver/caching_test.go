@@ -276,6 +276,13 @@ func TestWantToCache(t *testing.T) {
 	r.Question = []dns.Question{
 		{Name: "other.", Qtype: dns.TypeMX, Qclass: dns.ClassINET}}
 	checkWantToCache(t, q, r, "reply question does not match")
+
+	r = reply.Copy()
+	r.Answer = nil
+	for i := 0; i < 300; i++ {
+		r.Answer = append(r.Answer, mustNewRR(t, "test. A 1.2.3.4"))
+	}
+	checkWantToCache(t, q, r, "answer too large")
 }
 
 // Test that we handle the cache filling up.

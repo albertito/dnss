@@ -98,6 +98,12 @@ var (
 	// with Maintain().
 	maxCacheSize = 2000
 
+	// Maximum size of an answer we will cache, in bytes (uncompressed).
+	// Larger answers are rare, and in memory they can be much bigger than
+	// on the wire (each RR gets its own copy of the name), so caching them
+	// could use a lot of memory.
+	maxAnswerSize = 4 * 1024
+
 	// Minimum TTL for entries we consider for the cache.
 	minTTL = 2 * time.Minute
 
@@ -248,9 +254,21 @@ func wantToCache(question dns.Question, reply *dns.Msg) error {
 		return fmt.Errorf(
 			"reply question does not match: asked %v, got %v",
 			question, reply.Question[0])
+	} else if size := answerSize(reply.Answer); size > maxAnswerSize {
+		return fmt.Errorf("answer too large (%d bytes)", size)
 	}
 
 	return nil
+}
+
+// answerSize returns the uncompressed size of the answer, which is a
+// reasonable approximation of how much memory it takes.
+func answerSize(answer []dns.RR) int {
+	size := 0
+	for _, rr := range answer {
+		size += dns.Len(rr)
+	}
+	return size
 }
 
 func limitTTL(answer []dns.RR) time.Duration {
