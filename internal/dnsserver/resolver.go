@@ -256,9 +256,27 @@ func canUseCache(r *dns.Msg) error {
 		// We only support EDNS version 0 in our replies. Let the upstream
 		// handle other versions (it should reply with BADVERS).
 		return fmt.Errorf("EDNS version %d != 0", opt.Version())
+	} else if hasClientSubnet(opt) {
+		// The answer may be specific to the client's chosen subnet, so it
+		// should not be served to others.
+		return fmt.Errorf("has EDNS client subnet")
 	}
 
 	return nil
+}
+
+// hasClientSubnet returns true if the OPT record (which may be nil) has an
+// EDNS Client Subnet option (RFC 7871).
+func hasClientSubnet(opt *dns.OPT) bool {
+	if opt == nil {
+		return false
+	}
+	for _, o := range opt.Option {
+		if o.Option() == dns.EDNS0SUBNET {
+			return true
+		}
+	}
+	return false
 }
 
 func wantToCache(question dns.Question, reply *dns.Msg) error {

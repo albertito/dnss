@@ -4,6 +4,7 @@ package dnsserver
 
 import (
 	"fmt"
+	"net"
 	"reflect"
 	"strconv"
 	"strings"
@@ -188,10 +189,19 @@ func TestCacheBypass(t *testing.T) {
 	ednsV1.SetEdns0(4096, false)
 	ednsV1.IsEdns0().SetVersion(1)
 
+	ecs := newQuery("test.", dns.TypeA)
+	ecs.SetEdns0(4096, false)
+	ecs.IsEdns0().Option = append(ecs.IsEdns0().Option, &dns.EDNS0_SUBNET{
+		Code:          dns.EDNS0SUBNET,
+		Family:        1,
+		SourceNetmask: 24,
+		Address:       net.ParseIP("192.0.2.0").To4(),
+	})
+
 	tr := trace.New("test", "TestCacheBypass")
 	defer tr.Finish()
 
-	for _, req := range []*dns.Msg{multi, notify, ednsV1} {
+	for _, req := range []*dns.Msg{multi, notify, ednsV1, ecs} {
 		resetStats()
 		r.LastQuery = nil
 		if _, err := c.Query(req, tr); err != nil {
