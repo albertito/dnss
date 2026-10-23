@@ -2,12 +2,15 @@ package httpserver
 
 import (
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
 	"blitiri.com.ar/go/dnss/internal/testutil"
+
+	"github.com/miekg/dns"
 )
 
 func TestBasic(t *testing.T) {
@@ -58,6 +61,57 @@ func TestBasic(t *testing.T) {
 	if resp.StatusCode != http.StatusFailedDependency {
 		t.Errorf("bad upstream test: expected failed dependency, got %v",
 			resp.StatusCode)
+	}
+}
+
+// Test that large answers, which only fit when compressed, are delivered.
+func TestLargeAnswer(t *testing.T) {
+	upstreamAddr := testutil.GetFreePort()
+	go testutil.ServeTestDNSServer(upstreamAddr,
+		func(w dns.ResponseWriter, r *dns.Msg) {
+			m := &dns.Msg{}
+			m.SetReply(r)
+			if r.Question[0].Name == testutil.LargeAnswerName {
+				m.Answer = testutil.NewLargeAnswer(300)
+			}
+			m.Compress = true
+			w.WriteMsg(m)
+		})
+	testutil.WaitForDNSServer(upstreamAddr)
+
+	srv := &Server{
+		Upstream: upstreamAddr,
+	}
+
+	// Use EDNS0 so the upstream query can get the whole answer over UDP,
+	// as our test server doesn't support TCP.
+	m := &dns.Msg{}
+	m.SetQuestion(testutil.LargeAnswerName, dns.TypeA)
+	m.SetEdns0(dns.MaxMsgSize, false)
+	packed, err := m.Pack()
+	if err != nil {
+		t.Fatalf("error packing query: %v", err)
+	}
+
+	resp := query(t, srv, "POST", "/ignored", string(packed))
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected http status ok, got %v", resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("error reading body: %v", err)
+	}
+	if len(body) > dns.MaxMsgSize {
+		t.Errorf("reply is too large: %d bytes", len(body))
+	}
+
+	reply := &dns.Msg{}
+	if err := reply.Unpack(body); err != nil {
+		t.Fatalf("error unpacking reply: %v", err)
+	}
+	if len(reply.Answer) != 300 {
+		t.Errorf("expected 300 RRs, got %d", len(reply.Answer))
 	}
 }
 

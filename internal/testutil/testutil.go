@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -162,4 +163,28 @@ func NewRR(tb testing.TB, s string) dns.RR {
 		tb.Fatalf("Error parsing RR for testing: %v", err)
 	}
 	return rr
+}
+
+// LargeAnswerName is the name used in the records from NewLargeAnswer.
+// It is as long as a name can be, so the answers compress very well.
+var LargeAnswerName = strings.Repeat(strings.Repeat("x", 62)+".", 4)
+
+// NewLargeAnswer returns n A records for LargeAnswerName. Each takes ~270
+// bytes uncompressed, but only ~16 bytes compressed. This is useful to test
+// compression: for example, 300 of them take ~80 KiB uncompressed (more than
+// the 64 KiB DNS limit), but only ~5 KiB compressed.
+func NewLargeAnswer(n int) []dns.RR {
+	rrs := []dns.RR{}
+	for i := 0; i < n; i++ {
+		rrs = append(rrs, &dns.A{
+			Hdr: dns.RR_Header{
+				Name:   LargeAnswerName,
+				Rrtype: dns.TypeA,
+				Class:  dns.ClassINET,
+				Ttl:    3600,
+			},
+			A: net.IPv4(10, 0, byte(i>>8), byte(i)).To4(),
+		})
+	}
+	return rrs
 }

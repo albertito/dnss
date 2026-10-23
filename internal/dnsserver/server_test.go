@@ -7,6 +7,7 @@ import (
 	"github.com/miekg/dns"
 
 	"blitiri.com.ar/go/dnss/internal/testutil"
+	"blitiri.com.ar/go/dnss/internal/trace"
 )
 
 // Tests for the DNS server.
@@ -92,5 +93,50 @@ func queryFailure(t *testing.T, srv, domain string) {
 
 	if m.Rcode != dns.RcodeServerFailure {
 		t.Errorf("query %q: expected SERVFAIL, got message: %v", domain, m)
+	}
+}
+
+// largeResolver answers all queries with testutil.NewLargeAnswer.
+// We can't use testutil.TestResolver because it returns the same message on
+// every query, and the server modifies it when truncating.
+type largeResolver struct{}
+
+func (largeResolver) Init() error { return nil }
+func (largeResolver) Maintain()   {}
+func (largeResolver) Query(r *dns.Msg, tr *trace.Trace) (*dns.Msg, error) {
+	return &dns.Msg{
+		Question: r.Question,
+		Answer:   testutil.NewLargeAnswer(300),
+	}, nil
+}
+
+// Test that large answers, which only fit when compressed, are delivered.
+func TestLargeAnswer(t *testing.T) {
+	srv := New(testutil.GetFreePort(), largeResolver{}, "", nil)
+	go srv.ListenAndServe()
+	testutil.WaitForDNSServer(srv.Addr)
+
+	m := &dns.Msg{}
+	m.SetQuestion(testutil.LargeAnswerName, dns.TypeA)
+
+	// Over TCP, we should get the full answer.
+	c := &dns.Client{Net: "tcp"}
+	in, _, err := c.Exchange(m, srv.Addr)
+	if err != nil {
+		t.Fatalf("TCP query failed: %v", err)
+	}
+	if in.Truncated || len(in.Answer) != 300 {
+		t.Errorf("TCP: expected 300 RRs, got %d (truncated:%v)",
+			len(in.Answer), in.Truncated)
+	}
+
+	// Over UDP without EDNS0, we should get a truncated answer.
+	in, err = dns.Exchange(m, srv.Addr)
+	if err != nil {
+		t.Fatalf("UDP query failed: %v", err)
+	}
+	if !in.Truncated || len(in.Answer) >= 300 {
+		t.Errorf("UDP: expected truncated answer, got %d RRs (truncated:%v)",
+			len(in.Answer), in.Truncated)
 	}
 }

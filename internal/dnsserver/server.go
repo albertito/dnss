@@ -135,20 +135,30 @@ func (s *Server) Handler(w dns.ResponseWriter, r *dns.Msg) {
 }
 
 func (s *Server) writeReply(tr *trace.Trace, w dns.ResponseWriter, r, reply *dns.Msg) {
-	if w.RemoteAddr().Network() == "udp" {
-		// We need to check if the response fits.
-		// UDP by default has a maximum of 512 bytes. This can be extended via
-		// the client in the EDNS0 record.
-		max := 512
+	// We need to check if the response fits.
+	// UDP by default has a maximum of 512 bytes. This can be extended via
+	// the client in the EDNS0 record. TCP has a maximum of 64 KiB.
+	network := w.RemoteAddr().Network()
+	max := dns.MaxMsgSize
+	if network == "udp" {
+		max = 512
 		ednsOPT := r.IsEdns0()
 		if ednsOPT != nil {
 			max = int(ednsOPT.UDPSize())
 		}
-		reply.Truncate(max)
-		tr.Printf("UDP max:%d truncated:%v", max, reply.Truncated)
 	}
+	reply.Truncate(max)
+	tr.Printf("%s max:%d truncated:%v", network, max, reply.Truncated)
 
-	w.WriteMsg(reply)
+	// Always compress the reply. Messages are unpacked without compression,
+	// and packing them back as-is can make them much larger, even beyond what
+	// TCP can carry.
+	// Note this must be done after Truncate, which resets it.
+	reply.Compress = true
+
+	if err := w.WriteMsg(reply); err != nil {
+		tr.Errorf("error writing reply: %v", err)
+	}
 }
 
 // ListenAndServe launches the DNS proxy.

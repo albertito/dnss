@@ -130,6 +130,11 @@ func (s *Server) resolveDoH(tr *trace.Trace, w http.ResponseWriter, dnsQuery []b
 
 	tr.Answer(fromUp)
 
+	// Compress the reply. Messages are unpacked without compression, and
+	// packing them back as-is can make them much larger, even beyond the
+	// DoH limit of 64 KiB.
+	fromUp.Compress = true
+
 	packed, err := fromUp.Pack()
 	if err != nil {
 		err = tr.Errorf("cannot pack reply: %v", err)
