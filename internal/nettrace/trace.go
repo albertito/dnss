@@ -233,7 +233,7 @@ func (tr *trace) Printf(format string, a ...interface{}) {
 func (tr *trace) Errorf(format string, a ...interface{}) error {
 	tr.SetError()
 	err := fmt.Errorf(format, a...)
-	tr.Printf(err.Error())
+	tr.Printf("%s", err.Error())
 	return err
 }
 

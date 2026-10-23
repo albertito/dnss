@@ -81,7 +81,7 @@ func (t *Trace) Finish() {
 // Question adds the given question to the trace.
 func (t *Trace) Question(qs []dns.Question) {
 	if log.V(1) {
-		t.lprintf(1, questionsToString(qs))
+		t.lprintf(1, "%s", questionsToString(qs))
 	}
 }
 
@@ -100,9 +100,9 @@ func (t *Trace) Answer(m *dns.Msg) {
 		return
 	}
 
-	t.lprintf(1, m.MsgHdr.String())
+	t.lprintf(1, "%s", m.MsgHdr.String())
 	for _, rr := range m.Answer {
-		t.lprintf(1, rr.String())
+		t.lprintf(1, "%s", rr.String())
 	}
 }
 
