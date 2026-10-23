@@ -175,10 +175,9 @@ func BenchmarkSimple(b *testing.B) {
 	ServerAddr := Setup(b)
 	resetAnswers()
 	addAnswers(b, "test.blah. 3600 A 1.2.3.4")
-	b.ResetTimer()
 
 	var err error
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_, _, err = testutil.DNSQuery(ServerAddr, "test.blah.", dns.TypeA)
 		if err != nil {
 			b.Errorf("dns query returned error: %v", err)

@@ -2,6 +2,7 @@
 package testutil
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"net/http"
@@ -119,7 +120,7 @@ func (r *TestResolver) Init() error {
 }
 
 // Maintain the resolver.
-func (r *TestResolver) Maintain() {
+func (r *TestResolver) Maintain(ctx context.Context) {
 	r.MaintainC <- true
 }
 

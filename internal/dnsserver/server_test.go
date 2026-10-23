@@ -1,6 +1,7 @@
 package dnsserver
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
@@ -101,8 +102,8 @@ func queryFailure(t *testing.T, srv, domain string) {
 // every query, and the server modifies it when truncating.
 type largeResolver struct{}
 
-func (largeResolver) Init() error { return nil }
-func (largeResolver) Maintain()   {}
+func (largeResolver) Init() error                  { return nil }
+func (largeResolver) Maintain(ctx context.Context) {}
 func (largeResolver) Query(r *dns.Msg, tr *trace.Trace) (*dns.Msg, error) {
 	return &dns.Msg{
 		Question: r.Question,

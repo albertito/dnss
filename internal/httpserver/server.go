@@ -8,7 +8,6 @@ package httpserver
 import (
 	"encoding/base64"
 	"io"
-	"io/ioutil"
 	"mime"
 	"net/http"
 
@@ -30,12 +29,9 @@ type Server struct {
 
 // ListenAndServe starts the HTTPS server.
 func (s *Server) ListenAndServe() {
-	mux := http.NewServeMux()
-	mux.HandleFunc("/dns-query", s.Resolve)
-	mux.HandleFunc("/resolve", s.Resolve)
 	srv := http.Server{
 		Addr:    s.Addr,
-		Handler: mux,
+		Handler: s.newMux(),
 	}
 
 	log.Infof("HTTPS listening on %s", s.Addr)
@@ -48,58 +44,74 @@ func (s *Server) ListenAndServe() {
 	log.Fatalf("HTTPS exiting: %s", err)
 }
 
-// Resolve incoming DoH requests.
-func (s *Server) Resolve(w http.ResponseWriter, req *http.Request) {
+func (s *Server) newMux() *http.ServeMux {
+	mux := http.NewServeMux()
+	for _, path := range []string{"/dns-query", "/resolve"} {
+		mux.HandleFunc("GET "+path, s.resolveGET)
+		mux.HandleFunc("POST "+path, s.resolvePOST)
+	}
+	return mux
+}
+
+func newTrace(req *http.Request) *trace.Trace {
 	tr := trace.New("httpserver", "/resolve")
-	defer tr.Finish()
 	tr.Printf("from:%v", req.RemoteAddr)
 	tr.Printf("method:%v", req.Method)
+	return tr
+}
 
-	req.ParseForm()
+// Resolve incoming DoH GET requests, which have a "dns=" query parameter.
+func (s *Server) resolveGET(w http.ResponseWriter, req *http.Request) {
+	tr := newTrace(req)
+	defer tr.Finish()
 
-	// Identify DoH requests:
-	//  - GET requests have a "dns=" query parameter.
-	//  - POST requests have a content-type = application/dns-message.
-	if req.Method == "GET" && req.FormValue("dns") != "" {
-		tr.Printf("DoH:GET")
-		dnsQuery, err := base64.RawURLEncoding.DecodeString(
-			req.FormValue("dns"))
-		if err != nil {
-			tr.Error(err)
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-
-		s.resolveDoH(tr, w, dnsQuery)
+	dnsParam := req.URL.Query().Get("dns")
+	if dnsParam == "" {
+		tr.Errorf("unknown request type")
+		http.Error(w, "unknown request type", http.StatusUnsupportedMediaType)
 		return
 	}
 
-	if req.Method == "POST" {
-		ct, _, err := mime.ParseMediaType(req.Header.Get("Content-Type"))
-		if err != nil {
-			tr.Error(err)
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-
-		if ct == "application/dns-message" {
-			tr.Printf("DoH:POST")
-			// Limit the size of request to 4k.
-			dnsQuery, err := ioutil.ReadAll(io.LimitReader(req.Body, 4092))
-			if err != nil {
-				tr.Error(err)
-				http.Error(w, err.Error(), http.StatusBadRequest)
-				return
-			}
-
-			s.resolveDoH(tr, w, dnsQuery)
-			return
-		}
+	tr.Printf("DoH:GET")
+	dnsQuery, err := base64.RawURLEncoding.DecodeString(dnsParam)
+	if err != nil {
+		tr.Error(err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
 	}
 
-	// Could not found how to handle this request.
-	tr.Errorf("unknown request type")
-	http.Error(w, "unknown request type", http.StatusUnsupportedMediaType)
+	s.resolveDoH(tr, w, dnsQuery)
+}
+
+// Resolve incoming DoH POST requests, which have a content-type of
+// application/dns-message.
+func (s *Server) resolvePOST(w http.ResponseWriter, req *http.Request) {
+	tr := newTrace(req)
+	defer tr.Finish()
+
+	ct, _, err := mime.ParseMediaType(req.Header.Get("Content-Type"))
+	if err != nil {
+		tr.Error(err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if ct != "application/dns-message" {
+		tr.Errorf("unknown request type")
+		http.Error(w, "unknown request type", http.StatusUnsupportedMediaType)
+		return
+	}
+
+	tr.Printf("DoH:POST")
+	// Limit the size of request to 4k.
+	dnsQuery, err := io.ReadAll(http.MaxBytesReader(w, req.Body, 4096))
+	if err != nil {
+		tr.Error(err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	s.resolveDoH(tr, w, dnsQuery)
 }
 
 // Resolve DNS over HTTPS requests, as specified in RFC 8484.

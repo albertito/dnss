@@ -5,10 +5,11 @@ package dnsserver
 import (
 	"fmt"
 	"net"
-	"reflect"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"blitiri.com.ar/go/dnss/internal/testutil"
@@ -108,64 +109,62 @@ func TestHitReply(t *testing.T) {
 }
 
 // Test TTL handling.
+// It runs in a synctest bubble, so cache maintenance uses a fake clock and we
+// can check the TTLs precisely without waiting.
 func TestTTL(t *testing.T) {
-	r := testutil.NewTestResolver()
-	c := NewCachingResolver(r)
-	c.Init()
-	resetStats()
+	synctest.Test(t, func(t *testing.T) {
+		r := testutil.NewTestResolver()
+		c := NewCachingResolver(r)
+		c.Init()
+		resetStats()
 
-	// Note we don't start c.Maintain() yet, as we don't want the background
-	// TTL updater until later.
+		// Note we don't start c.Maintain() yet, as we don't want the
+		// background TTL updater until later.
 
-	// Test a record with a larger-than-max TTL (1 day).
-	// The TTL of the response should be capped.
-	resp := queryA(t, c, "test. 86400 A 1.2.3.4", "test.", "1.2.3.4")
-	if !statsEquals(1, 0, 1) {
-		t.Errorf("bad stats: %v", dumpStats())
-	}
-	if ttl := getTTL(resp.Answer); ttl != maxTTL {
-		t.Errorf("expected max TTL (%v), got %v", maxTTL, ttl)
-	}
-
-	// Same query, should be cached, and TTL also capped.
-	// As we've not enabled cache maintenance, we can be sure TTL == maxTTL.
-	resp = queryA(t, c, "", "test.", "1.2.3.4")
-	if !statsEquals(2, 1, 1) {
-		t.Errorf("bad stats: %v", dumpStats())
-	}
-	if ttl := getTTL(resp.Answer); ttl != maxTTL {
-		t.Errorf("expected max TTL (%v), got %v", maxTTL, ttl)
-	}
-
-	// To test that the TTL is reduced appropriately, set a small maintenance
-	// period, and then repeatedly query the record. We should see its TTL
-	// shrinking down within 1s.
-	// Even though the TTL resolution in the protocol is in seconds, we don't
-	// need to wait that much "thanks" to rounding artifacts.
-	maintenancePeriod = 50 * time.Millisecond
-	go c.Maintain()
-	resetStats()
-
-	// Check that the back resolver's Maintain() is called.
-	select {
-	case <-r.MaintainC:
-		t.Log("Maintain() called")
-	case <-time.After(1 * time.Second):
-		t.Errorf("back resolver Maintain() was not called")
-	}
-
-	start := time.Now()
-	for time.Since(start) < 1*time.Second {
-		resp = queryA(t, c, "", "test.", "1.2.3.4")
-		t.Logf("TTL %v", getTTL(resp.Answer))
-		if ttl := getTTL(resp.Answer); ttl <= (maxTTL - 1*time.Second) {
-			break
+		// Test a record with a larger-than-max TTL (1 day).
+		// The TTL of the response should be capped.
+		resp := queryA(t, c, "test. 86400 A 1.2.3.4", "test.", "1.2.3.4")
+		if !statsEquals(1, 0, 1) {
+			t.Errorf("bad stats: %v", dumpStats())
 		}
-		time.Sleep(maintenancePeriod)
-	}
-	if ttl := getTTL(resp.Answer); ttl > (maxTTL - 1*time.Second) {
-		t.Errorf("expected maxTTL-1s, got %v", ttl)
-	}
+		if ttl := getTTL(resp.Answer); ttl != maxTTL {
+			t.Errorf("expected max TTL (%v), got %v", maxTTL, ttl)
+		}
+
+		// Same query, should be cached, and TTL also capped.
+		// As we've not enabled cache maintenance, we can be sure TTL ==
+		// maxTTL.
+		resp = queryA(t, c, "", "test.", "1.2.3.4")
+		if !statsEquals(2, 1, 1) {
+			t.Errorf("bad stats: %v", dumpStats())
+		}
+		if ttl := getTTL(resp.Answer); ttl != maxTTL {
+			t.Errorf("expected max TTL (%v), got %v", maxTTL, ttl)
+		}
+
+		// Start cache maintenance, and check that the back resolver's
+		// Maintain() is called.
+		go c.Maintain(t.Context())
+		synctest.Wait()
+		select {
+		case <-r.MaintainC:
+		default:
+			t.Errorf("back resolver Maintain() was not called")
+		}
+
+		// After each maintenance period, the TTL should be reduced
+		// accordingly.
+		for i := 1; i <= 3; i++ {
+			time.Sleep(maintenancePeriod)
+			synctest.Wait()
+
+			resp = queryA(t, c, "", "test.", "1.2.3.4")
+			expected := maxTTL - time.Duration(i)*maintenancePeriod
+			if ttl := getTTL(resp.Answer); ttl != expected {
+				t.Errorf("%d: expected TTL %v, got %v", i, expected, ttl)
+			}
+		}
+	})
 }
 
 // Test that requests we can't answer from the cache bypass it.
@@ -482,8 +481,7 @@ func BenchmarkCacheSimple(b *testing.B) {
 
 	req := newQuery("test.", dns.TypeA)
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_, err = c.Query(req, tr)
 		if err != nil {
 			b.Errorf("query failed: %v", err)
@@ -536,7 +534,7 @@ func queryA(t *testing.T, c *cachingResolver, rr, domain, expected string) *dns.
 		t.Errorf("expected %s, got %v", expected, a.A)
 	}
 
-	if !reflect.DeepEqual(req.Question, resp.Question) {
+	if !slices.Equal(req.Question, resp.Question) {
 		t.Errorf("question mis-match: request %v, response %v",
 			req.Question, resp.Question)
 	}

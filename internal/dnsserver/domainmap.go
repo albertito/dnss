@@ -1,6 +1,7 @@
 package dnsserver
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -57,13 +58,13 @@ func DomainMapFromString(s string) (DomainMap, error) {
 			continue
 		}
 
-		xs := strings.SplitN(pair, ":", 2)
-		if len(xs) != 2 {
+		domain, addr, ok := strings.Cut(pair, ":")
+		if !ok {
 			return nil, fmt.Errorf("%q: %w", pair, errInvalidFormat)
 		}
-		m.Set(strings.TrimSpace(xs[0]), strings.TrimSpace(xs[1]))
+		m.Set(strings.TrimSpace(domain), strings.TrimSpace(addr))
 	}
 	return m, nil
 }
 
-var errInvalidFormat = fmt.Errorf("entry does not have a ':'")
+var errInvalidFormat = errors.New("entry does not have a ':'")

@@ -3,9 +3,7 @@
 package dnsserver
 
 import (
-	"crypto/rand"
-	"encoding/binary"
-	"fmt"
+	"context"
 	"net"
 	"sync"
 
@@ -15,31 +13,6 @@ import (
 	"blitiri.com.ar/go/systemd"
 	"github.com/miekg/dns"
 )
-
-// newID is a channel used to generate new request IDs.
-// There is a goroutine created at init() time that will get IDs randomly, to
-// help prevent guesses.
-var newID chan uint16
-
-func init() {
-	// Buffer 100 numbers to avoid blocking on crypto rand.
-	newID = make(chan uint16, 100)
-
-	go func() {
-		var id uint16
-		var err error
-
-		for {
-			err = binary.Read(rand.Reader, binary.LittleEndian, &id)
-			if err != nil {
-				panic(fmt.Sprintf("error creating id: %v", err))
-			}
-
-			newID <- id
-		}
-
-	}()
-}
 
 // Server implements a DNS proxy, which will (mostly) use the given resolver
 // to resolve queries.
@@ -113,10 +86,10 @@ func (s *Server) Handler(w dns.ResponseWriter, r *dns.Msg) {
 		return
 	}
 
-	// Create our own IDs, in case different users pick the same id and we
-	// pass that upstream.
+	// Create our own (random) IDs, in case different users pick the same id
+	// and we pass that upstream.
 	oldid := r.Id
-	r.Id = <-newID
+	r.Id = dns.Id()
 
 	fromUp, err := s.resolver.Query(r, tr)
 	if err != nil {
@@ -139,16 +112,16 @@ func (s *Server) writeReply(tr *trace.Trace, w dns.ResponseWriter, r, reply *dns
 	// UDP by default has a maximum of 512 bytes. This can be extended via
 	// the client in the EDNS0 record. TCP has a maximum of 64 KiB.
 	network := w.RemoteAddr().Network()
-	max := dns.MaxMsgSize
+	maxSize := dns.MaxMsgSize
 	if network == "udp" {
-		max = 512
+		maxSize = 512
 		ednsOPT := r.IsEdns0()
 		if ednsOPT != nil {
-			max = int(ednsOPT.UDPSize())
+			maxSize = int(ednsOPT.UDPSize())
 		}
 	}
-	reply.Truncate(max)
-	tr.Printf("%s max:%d truncated:%v", network, max, reply.Truncated)
+	reply.Truncate(maxSize)
+	tr.Printf("%s max:%d truncated:%v", network, maxSize, reply.Truncated)
 
 	// Always compress the reply. Messages are unpacked without compression,
 	// and packing them back as-is can make them much larger, even beyond what
@@ -168,7 +141,7 @@ func (s *Server) ListenAndServe() {
 		log.Fatalf("Error initializing: %v", err)
 	}
 
-	go s.resolver.Maintain()
+	go s.resolver.Maintain(context.Background())
 
 	if s.Addr == "systemd" {
 		s.systemdServe()
@@ -219,31 +192,19 @@ func (s *Server) systemdServe() {
 	var wg sync.WaitGroup
 
 	for _, pconn := range pconns {
-		if pconn == nil {
-			continue
-		}
-
-		wg.Add(1)
-		go func(c net.PacketConn) {
-			defer wg.Done()
-			log.Infof("Activate on packet connection (UDP): %v", c.LocalAddr())
-			err := dns.ActivateAndServe(nil, c, dns.HandlerFunc(s.Handler))
+		wg.Go(func() {
+			log.Infof("Activate on packet connection (UDP): %v", pconn.LocalAddr())
+			err := dns.ActivateAndServe(nil, pconn, dns.HandlerFunc(s.Handler))
 			log.Fatalf("Exiting UDP listener: %v", err)
-		}(pconn)
+		})
 	}
 
 	for _, lis := range listeners {
-		if lis == nil {
-			continue
-		}
-
-		wg.Add(1)
-		go func(l net.Listener) {
-			defer wg.Done()
-			log.Infof("Activate on listening socket (TCP): %v", l.Addr())
-			err := dns.ActivateAndServe(l, nil, dns.HandlerFunc(s.Handler))
+		wg.Go(func() {
+			log.Infof("Activate on listening socket (TCP): %v", lis.Addr())
+			err := dns.ActivateAndServe(lis, nil, dns.HandlerFunc(s.Handler))
 			log.Fatalf("Exiting TCP listener: %v", err)
-		}(lis)
+		})
 	}
 
 	wg.Wait()

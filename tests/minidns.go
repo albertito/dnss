@@ -1,5 +1,4 @@
 //go:build ignore
-// +build ignore
 
 // minidns is a trivial DNS server used for testing.
 //
@@ -62,15 +61,12 @@ func main() {
 	srv.loadZones(zonesFile)
 
 	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		srv.listenAndServeUDP(*addr)
-	}()
-	go func() {
-		defer wg.Done()
+	})
+	wg.Go(func() {
 		srv.listenAndServeTCP(*addr)
-	}()
+	})
 	wg.Wait()
 }
 

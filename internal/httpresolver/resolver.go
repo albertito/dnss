@@ -5,13 +5,14 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"mime"
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"sync"
 	"time"
 
@@ -39,10 +40,10 @@ type httpsResolver struct {
 	tr       *trace.Trace
 }
 
-var errAppendingCerts = fmt.Errorf("error appending certificates")
+var errAppendingCerts = errors.New("error appending certificates")
 
 func loadCertPool(caFile string) (*x509.CertPool, error) {
-	pemData, err := ioutil.ReadFile(caFile)
+	pemData, err := os.ReadFile(caFile)
 	if err != nil {
 		return nil, err
 	}
@@ -121,7 +122,6 @@ func (r *httpsResolver) newClient() (*http.Client, error) {
 		DialContext: (&net.Dialer{
 			Timeout:   10 * time.Second,
 			KeepAlive: 1 * time.Second,
-			DualStack: true,
 			Resolver:  r.fallbackResolver,
 		}).DialContext,
 		ForceAttemptHTTP2:     true,
@@ -155,9 +155,17 @@ func (r *httpsResolver) setClientError(err error) {
 	}
 }
 
-func (r *httpsResolver) Maintain() {
-	for range time.Tick(2 * time.Second) {
-		r.maybeRotateClient()
+func (r *httpsResolver) Maintain(ctx context.Context) {
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			r.maybeRotateClient()
+		}
 	}
 }
 
@@ -201,7 +209,7 @@ func (r *httpsResolver) maybeRotateClient() {
 func (r *httpsResolver) Query(req *dns.Msg, tr *trace.Trace) (*dns.Msg, error) {
 	packed, err := req.Pack()
 	if err != nil {
-		return nil, fmt.Errorf("cannot pack query: %v", err)
+		return nil, fmt.Errorf("cannot pack query: %w", err)
 	}
 
 	if log.V(1) {
@@ -220,7 +228,7 @@ func (r *httpsResolver) Query(req *dns.Msg, tr *trace.Trace) (*dns.Msg, error) {
 		bytes.NewReader(packed))
 	r.setClientError(err)
 	if err != nil {
-		return nil, fmt.Errorf("POST failed: %v", err)
+		return nil, fmt.Errorf("POST failed: %w", err)
 	}
 	tr.Printf("%s  %s", hr.Proto, hr.Status)
 	defer hr.Body.Close()
@@ -232,22 +240,22 @@ func (r *httpsResolver) Query(req *dns.Msg, tr *trace.Trace) (*dns.Msg, error) {
 	// Read the HTTPS response, and parse the message.
 	ct, _, err := mime.ParseMediaType(hr.Header.Get("Content-Type"))
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse content type: %v", err)
+		return nil, fmt.Errorf("failed to parse content type: %w", err)
 	}
 
 	if ct != "application/dns-message" {
 		return nil, fmt.Errorf("unknown response content type %q", ct)
 	}
 
-	respRaw, err := ioutil.ReadAll(io.LimitReader(hr.Body, 64*1024))
+	respRaw, err := io.ReadAll(io.LimitReader(hr.Body, 64*1024))
 	if err != nil {
-		return nil, fmt.Errorf("error reading from body: %v", err)
+		return nil, fmt.Errorf("error reading from body: %w", err)
 	}
 
 	respDNS := &dns.Msg{}
 	err = respDNS.Unpack(respRaw)
 	if err != nil {
-		return nil, fmt.Errorf("error unpacking response: %v", err)
+		return nil, fmt.Errorf("error unpacking response: %w", err)
 	}
 
 	return respDNS, nil

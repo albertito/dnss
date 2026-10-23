@@ -25,7 +25,7 @@ func TestBasic(t *testing.T) {
 
 	// Simple successful query.
 	resp := query(t, srv, "GET",
-		"/ignored?dns=q80BAAABAAAAAAAAA3d3dwdleGFtcGxlA2NvbQAAAQAB", "")
+		"/dns-query?dns=q80BAAABAAAAAAAAA3d3dwdleGFtcGxlA2NvbQAAAQAB", "")
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("good test: expected http status ok, got %v",
 			resp.StatusCode)
@@ -33,7 +33,7 @@ func TestBasic(t *testing.T) {
 
 	// Invalid request (error unpacking)
 	resp = query(t, srv, "GET",
-		"/ignored?dns=0000", "")
+		"/dns-query?dns=0000", "")
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Errorf("unpacking test: expected bad request, got %v",
 			resp.StatusCode)
@@ -41,11 +41,11 @@ func TestBasic(t *testing.T) {
 
 	// Error reading request body.
 	{
-		req := httptest.NewRequest("POST", "/ignored", nil)
+		req := httptest.NewRequest("POST", "/dns-query", nil)
 		req.Header.Set("Content-Type", "application/dns-message")
 		req.Body = errorReadCloser{}
 		w := httptest.NewRecorder()
-		srv.Resolve(w, req)
+		srv.newMux().ServeHTTP(w, req)
 		resp := w.Result()
 		if resp.StatusCode != http.StatusBadRequest {
 			t.Errorf("bad body test: expected bad request, got %v",
@@ -53,11 +53,23 @@ func TestBasic(t *testing.T) {
 		}
 	}
 
+	// Requests we don't know how to handle.
+	resp = query(t, srv, "GET", "/dns-query", "")
+	if resp.StatusCode != http.StatusUnsupportedMediaType {
+		t.Errorf("GET without dns: expected unsupported media type, got %v",
+			resp.StatusCode)
+	}
+	resp = query(t, srv, "PUT", "/dns-query", "")
+	if resp.StatusCode != http.StatusMethodNotAllowed {
+		t.Errorf("PUT: expected method not allowed, got %v",
+			resp.StatusCode)
+	}
+
 	// Upstream error.
 	// Put this last because we override the upstream address.
 	srv.Upstream = "localhost:0"
 	resp = query(t, srv, "GET",
-		"/ignored?dns=q80BAAABAAAAAAAAA3d3dwdleGFtcGxlA2NvbQAAAQAB", "")
+		"/dns-query?dns=q80BAAABAAAAAAAAA3d3dwdleGFtcGxlA2NvbQAAAQAB", "")
 	if resp.StatusCode != http.StatusFailedDependency {
 		t.Errorf("bad upstream test: expected failed dependency, got %v",
 			resp.StatusCode)
@@ -93,7 +105,7 @@ func TestLargeAnswer(t *testing.T) {
 		t.Fatalf("error packing query: %v", err)
 	}
 
-	resp := query(t, srv, "POST", "/ignored", string(packed))
+	resp := query(t, srv, "POST", "/dns-query", string(packed))
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("expected http status ok, got %v", resp.StatusCode)
 	}
@@ -122,7 +134,7 @@ func query(t *testing.T, srv *Server, method, url, body string) *http.Response {
 	req.Header.Set("Content-Type", "application/dns-message")
 
 	w := httptest.NewRecorder()
-	srv.Resolve(w, req)
+	srv.newMux().ServeHTTP(w, req)
 
 	return w.Result()
 }

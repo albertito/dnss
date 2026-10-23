@@ -2,11 +2,14 @@ package dnsserver
 
 import (
 	"bytes"
+	"cmp"
+	"context"
 	"expvar"
 	"fmt"
+	"maps"
 	"math"
 	"net/http"
-	"sort"
+	"slices"
 	"sync"
 	"time"
 
@@ -21,9 +24,9 @@ type Resolver interface {
 	// Initialize the resolver.
 	Init() error
 
-	// Maintain performs resolver maintenance. It's expected to run
-	// indefinitely, but may return early if appropriate.
-	Maintain()
+	// Maintain performs resolver maintenance. It's expected to run until the
+	// context is canceled, but may return early if appropriate.
+	Maintain(ctx context.Context)
 
 	// Query responds to a DNS query.
 	Query(r *dns.Msg, tr *trace.Trace) (*dns.Msg, error)
@@ -42,7 +45,7 @@ type cachingResolver struct {
 	answer map[cacheKey][]dns.RR
 
 	// mu protects the answer map.
-	mu *sync.RWMutex
+	mu sync.RWMutex
 }
 
 // cacheKey is the key for the cache entries.
@@ -85,7 +88,6 @@ func NewCachingResolver(back Resolver) *cachingResolver {
 	return &cachingResolver{
 		back:   back,
 		answer: map[cacheKey][]dns.RR{},
-		mu:     &sync.RWMutex{},
 	}
 }
 
@@ -137,15 +139,13 @@ var stats = struct {
 	// Times the cache was full when recording an entry, so we evicted one
 	// to make room.
 	cacheFull *expvar.Int
-}{}
-
-func init() {
-	stats.cacheTotal = expvar.NewInt("cache-total")
-	stats.cacheBypassed = expvar.NewInt("cache-bypassed")
-	stats.cacheHits = expvar.NewInt("cache-hits")
-	stats.cacheMisses = expvar.NewInt("cache-misses")
-	stats.cacheRecorded = expvar.NewInt("cache-recorded")
-	stats.cacheFull = expvar.NewInt("cache-full")
+}{
+	cacheTotal:    expvar.NewInt("cache-total"),
+	cacheBypassed: expvar.NewInt("cache-bypassed"),
+	cacheMisses:   expvar.NewInt("cache-misses"),
+	cacheHits:     expvar.NewInt("cache-hits"),
+	cacheRecorded: expvar.NewInt("cache-recorded"),
+	cacheFull:     expvar.NewInt("cache-full"),
 }
 
 func (c *cachingResolver) Init() error {
@@ -168,12 +168,8 @@ func (c *cachingResolver) DumpCache(w http.ResponseWriter, r *http.Request) {
 
 	// Sort output by expiration, so it is somewhat consistent and practical
 	// to read.
-	keys := []cacheKey{}
-	for k := range c.answer {
-		keys = append(keys, k)
-	}
-	sort.Slice(keys, func(i, j int) bool {
-		return getTTL(c.answer[keys[i]]) < getTTL(c.answer[keys[j]])
+	keys := slices.SortedFunc(maps.Keys(c.answer), func(a, b cacheKey) int {
+		return cmp.Compare(getTTL(c.answer[a]), getTTL(c.answer[b]))
 	})
 
 	// Go through the sorted list and dump the entries.
@@ -212,10 +208,19 @@ func (c *cachingResolver) FlushCache(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("cache flush complete"))
 }
 
-func (c *cachingResolver) Maintain() {
-	go c.back.Maintain()
+func (c *cachingResolver) Maintain(ctx context.Context) {
+	go c.back.Maintain(ctx)
 
-	for range time.Tick(maintenancePeriod) {
+	ticker := time.NewTicker(maintenancePeriod)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
+
 		tr := trace.New("dnsserver.Cache", "GC")
 		var total, expired int
 
@@ -331,9 +336,7 @@ func limitTTL(answer []dns.RR) time.Duration {
 			rrTTL = 0
 		}
 
-		if t := time.Duration(rrTTL) * time.Second; t < ttl {
-			ttl = t
-		}
+		ttl = min(ttl, time.Duration(rrTTL)*time.Second)
 	}
 
 	return ttl
