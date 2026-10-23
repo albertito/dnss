@@ -133,6 +133,10 @@ var stats = struct {
 
 	// Entries we decided to record in the cache.
 	cacheRecorded *expvar.Int
+
+	// Times the cache was full when recording an entry, so we evicted one
+	// to make room.
+	cacheFull *expvar.Int
 }{}
 
 func init() {
@@ -141,6 +145,7 @@ func init() {
 	stats.cacheHits = expvar.NewInt("cache-hits")
 	stats.cacheMisses = expvar.NewInt("cache-misses")
 	stats.cacheRecorded = expvar.NewInt("cache-recorded")
+	stats.cacheFull = expvar.NewInt("cache-full")
 }
 
 func (c *cachingResolver) Init() error {
@@ -374,9 +379,18 @@ func (c *cachingResolver) Query(r *dns.Msg, tr *trace.Trace) (*dns.Msg, error) {
 		return reply, nil
 	}
 
-	// Store the answer in the cache, but don't exceed 2k entries.
-	// TODO: Do usage based eviction when we're approaching ~1.5k.
+	// Store the answer in the cache, but don't exceed maxCacheSize entries.
 	c.mu.Lock()
+	if _, ok := c.answer[key]; !ok && len(c.answer) >= maxCacheSize {
+		// Evict an arbitrary entry to make room. Go's map iteration order is
+		// randomized, which is good enough for this: it prevents the cache
+		// from being filled and pinned by long-lived entries.
+		for k := range c.answer {
+			delete(c.answer, k)
+			stats.cacheFull.Add(1)
+			break
+		}
+	}
 	if len(c.answer) < maxCacheSize {
 		setTTL(answer, ttl)
 		c.answer[key] = answer

@@ -285,10 +285,7 @@ func TestWantToCache(t *testing.T) {
 	checkWantToCache(t, q, r, "answer too large")
 }
 
-// Test that we handle the cache filling up.
-// Note this test is tied to the current behaviour of not doing any eviction
-// when we're full, which is not ideal and will likely be changed in the
-// future.
+// Test that we handle the cache filling up, by evicting entries.
 func TestCacheFull(t *testing.T) {
 	r := testutil.NewTestResolver()
 	c := NewCachingResolver(r)
@@ -305,19 +302,20 @@ func TestCacheFull(t *testing.T) {
 		}
 	}
 
-	// Query up to maxCacheSize, they should all be hits.
-	resetStats()
-	for i := 0; i < maxCacheSize; i++ {
-		queryA(t, c, "", fmt.Sprintf("test%d.", i), "1.2.3.4")
-		if !statsEquals(i+1, i+1, 0) {
-			t.Errorf("bad stats: %v", dumpStats())
-		}
+	// The last one should have been recorded by evicting another entry.
+	if len(c.answer) != maxCacheSize {
+		t.Errorf("expected %d entries, got %d", maxCacheSize, len(c.answer))
+	}
+	if stats.cacheRecorded.Value() != int64(maxCacheSize+1) ||
+		stats.cacheFull.Value() != 1 {
+		t.Errorf("expected %d recorded and cache full 1 time, got %v and %v",
+			maxCacheSize+1, stats.cacheRecorded, stats.cacheFull)
 	}
 
-	// Querying maxCacheSize+1 should be a miss, because the cache was full.
+	// So querying the last one should be a hit.
 	resetStats()
 	queryA(t, c, "", fmt.Sprintf("test%d.", maxCacheSize), "1.2.3.4")
-	if !statsEquals(1, 0, 1) {
+	if !statsEquals(1, 1, 0) {
 		t.Errorf("bad stats: %v", dumpStats())
 	}
 }
@@ -392,6 +390,7 @@ func resetStats() {
 	stats.cacheHits.Set(0)
 	stats.cacheMisses.Set(0)
 	stats.cacheRecorded.Set(0)
+	stats.cacheFull.Set(0)
 }
 
 func statsEquals(total, hits, misses int) bool {
