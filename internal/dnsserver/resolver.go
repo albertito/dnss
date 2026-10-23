@@ -361,15 +361,16 @@ func (c *cachingResolver) Query(r *dns.Msg, tr *trace.Trace) (*dns.Msg, error) {
 		tr.Printf("cache hit")
 		stats.cacheHits.Add(1)
 
-		reply := &dns.Msg{
-			MsgHdr: dns.MsgHdr{
-				Id:            r.Id,
-				Response:      true,
-				Authoritative: false,
-				Rcode:         dns.RcodeSuccess,
-			},
-			Question: r.Question,
-			Answer:   answer,
+		reply := new(dns.Msg)
+		reply.SetReply(r)
+		reply.RecursionAvailable = true
+		reply.Answer = answer
+
+		// If the client used EDNS0, it expects an OPT record in the reply.
+		// We mirror its UDP size, and the DO bit (which is in the key, so
+		// the answer matches it).
+		if opt := r.IsEdns0(); opt != nil {
+			reply.SetEdns0(opt.UDPSize(), opt.Do())
 		}
 
 		return reply, nil

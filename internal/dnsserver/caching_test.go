@@ -51,6 +51,61 @@ func TestBasic(t *testing.T) {
 	}
 }
 
+// Test the headers and OPT record of cache hit replies.
+func TestHitReply(t *testing.T) {
+	r := testutil.NewTestResolver()
+	c := NewCachingResolver(r)
+	c.Init()
+	resetStats()
+
+	r.Response = newReply(mustNewRR(t, "test. A 1.2.3.4"))
+
+	tr := trace.New("test", "TestHitReply")
+	defer tr.Finish()
+
+	// Plain query: no OPT in the reply.
+	req := newQuery("test.", dns.TypeA)
+	req.RecursionDesired = false
+	c.Query(req, tr)
+	resp, err := c.Query(req, tr)
+	if err != nil {
+		t.Fatalf("query failed: %v", err)
+	}
+	if !statsEquals(2, 1, 1) {
+		t.Errorf("bad stats: %v", dumpStats())
+	}
+	if resp.Id != req.Id || !resp.Response || !resp.RecursionAvailable ||
+		resp.RecursionDesired || resp.Authoritative ||
+		resp.Rcode != dns.RcodeSuccess {
+		t.Errorf("bad reply header: %v", resp.MsgHdr)
+	}
+	if opt := resp.IsEdns0(); opt != nil {
+		t.Errorf("unexpected OPT in reply: %v", opt)
+	}
+
+	// EDNS0 query with DO: the reply should have an OPT, with DO set.
+	req = newQuery("test.", dns.TypeA)
+	req.SetEdns0(1232, true)
+	c.Query(req, tr)
+	resp, err = c.Query(req, tr)
+	if err != nil {
+		t.Fatalf("query failed: %v", err)
+	}
+	if !statsEquals(4, 2, 2) {
+		t.Errorf("bad stats: %v", dumpStats())
+	}
+	if !resp.RecursionDesired {
+		t.Errorf("RD not copied from the request: %v", resp.MsgHdr)
+	}
+	opt := resp.IsEdns0()
+	if opt == nil {
+		t.Fatalf("no OPT in reply: %v", resp)
+	}
+	if opt.UDPSize() != 1232 || !opt.Do() {
+		t.Errorf("bad OPT in reply: %v", opt)
+	}
+}
+
 // Test TTL handling.
 func TestTTL(t *testing.T) {
 	r := testutil.NewTestResolver()
