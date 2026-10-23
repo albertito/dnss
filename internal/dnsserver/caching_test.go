@@ -239,7 +239,7 @@ func TestMinTTL(t *testing.T) {
 	r.Response.Answer = append(r.Response.Answer,
 		mustNewRR(t, "cdn.test. 30 A 1.2.3.4"))
 	req := newQuery("test.", dns.TypeA)
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		if _, err := c.Query(req, tr); err != nil {
 			t.Fatalf("query failed: %v", err)
 		}
@@ -254,7 +254,7 @@ func TestMinTTL(t *testing.T) {
 	r.Response.Answer = append(r.Response.Answer,
 		mustNewRR(t, "cdn.test. 600 A 1.2.3.4"))
 	req = newQuery("test2.", dns.TypeA)
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		resp, err := c.Query(req, tr)
 		if err != nil {
 			t.Fatalf("query failed: %v", err)
@@ -274,7 +274,7 @@ func TestMinTTL(t *testing.T) {
 	resetStats()
 	r.Response = newReply(mustNewRR(t, "test3. 2147483648 A 1.2.3.4"))
 	req = newQuery("test3.", dns.TypeA)
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		if _, err := c.Query(req, tr); err != nil {
 			t.Fatalf("query failed: %v", err)
 		}
@@ -390,7 +390,7 @@ func TestWantToCache(t *testing.T) {
 
 	r = reply.Copy()
 	r.Answer = nil
-	for i := 0; i < 300; i++ {
+	for range 300 {
 		r.Answer = append(r.Answer, mustNewRR(t, "test. A 1.2.3.4"))
 	}
 	checkWantToCache(t, q, r, "answer too large")
@@ -447,7 +447,7 @@ func TestZeroSize(t *testing.T) {
 	r.Response = newReply(mustNewRR(t, "test. A 1.2.3.4"))
 
 	// Do 5 different requests.
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		queryA(t, c, "", fmt.Sprintf("test%d.", i), "1.2.3.4")
 		if !statsEquals(i+1, 0, i+1) {
 			t.Errorf("bad stats: %v", dumpStats())
@@ -456,7 +456,7 @@ func TestZeroSize(t *testing.T) {
 
 	// Query them back, they should all be misses.
 	resetStats()
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		queryA(t, c, "", fmt.Sprintf("test%d.", i), "1.2.3.4")
 		if !statsEquals(i+1, 0, i+1) {
 			t.Errorf("bad stats: %v", dumpStats())

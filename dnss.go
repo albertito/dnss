@@ -123,11 +123,9 @@ func main() {
 		dth := dnsserver.New(*dnsListenAddr, resolver,
 			*dnsUnqualifiedUpstream, overrides)
 
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			dth.ListenAndServe()
-		}()
+		})
 	}
 
 	// HTTPS to DNS.
@@ -140,11 +138,9 @@ func main() {
 			Insecure: *insecureHTTPServer,
 		}
 
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			s.ListenAndServe()
-		}()
+		})
 	}
 
 	wg.Wait()

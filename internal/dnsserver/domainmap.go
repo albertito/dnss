@@ -51,7 +51,7 @@ func (m DomainMap) GetMostSpecific(domain string) (string, bool) {
 // {"domain1": "addr1", "domain2": "addr2", ...}.
 func DomainMapFromString(s string) (DomainMap, error) {
 	m := DomainMap{}
-	for _, pair := range strings.Split(s, ",") {
+	for pair := range strings.SplitSeq(s, ",") {
 		pair = strings.TrimSpace(pair)
 		if pair == "" {
 			continue

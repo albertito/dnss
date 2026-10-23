@@ -31,11 +31,11 @@ func New(family, title string) *Trace {
 }
 
 // Printf adds this message to the trace's log.
-func (t *Trace) Printf(format string, a ...interface{}) {
+func (t *Trace) Printf(format string, a ...any) {
 	t.t.Printf(format, a...)
 }
 
-func (t *Trace) lprintf(n int, format string, a ...interface{}) {
+func (t *Trace) lprintf(n int, format string, a ...any) {
 	t.t.Printf(format, a...)
 
 	// If -v=3, also log to the main log.
@@ -46,7 +46,7 @@ func (t *Trace) lprintf(n int, format string, a ...interface{}) {
 }
 
 // Errorf adds this message to the trace's log, with an error level.
-func (t *Trace) Errorf(format string, a ...interface{}) error {
+func (t *Trace) Errorf(format string, a ...any) error {
 	// Note we can't just call t.Error here, as it breaks caller logging.
 	err := fmt.Errorf(format, a...)
 	t.t.SetError()

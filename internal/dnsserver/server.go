@@ -181,19 +181,15 @@ func (s *Server) classicServe() {
 	log.Infof("DNS listening on %s", s.Addr)
 
 	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		err := dns.ListenAndServe(s.Addr, "udp", dns.HandlerFunc(s.Handler))
 		log.Fatalf("Exiting UDP: %v", err)
-	}()
+	})
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		err := dns.ListenAndServe(s.Addr, "tcp", dns.HandlerFunc(s.Handler))
 		log.Fatalf("Exiting TCP: %v", err)
-	}()
+	})
 
 	wg.Wait()
 }

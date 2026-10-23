@@ -135,7 +135,7 @@ func TestNoBody(t *testing.T) {
 			w.Header().Set("Content-Type", "application/dns-message")
 			// Write some data so it gets flushed to the client before
 			// abruptly closing the connection.
-			for i := 0; i < 2000; i++ {
+			for range 2000 {
 				fmt.Fprintf(w, "some response\n")
 			}
 			defer ts.CloseClientConnections()

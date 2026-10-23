@@ -175,7 +175,7 @@ var LargeAnswerName = strings.Repeat(strings.Repeat("x", 62)+".", 4)
 // the 64 KiB DNS limit), but only ~5 KiB compressed.
 func NewLargeAnswer(n int) []dns.RR {
 	rrs := []dns.RR{}
-	for i := 0; i < n; i++ {
+	for i := range n {
 		rrs = append(rrs, &dns.A{
 			Hdr: dns.RR_Header{
 				Name:   LargeAnswerName,
