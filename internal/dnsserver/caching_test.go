@@ -112,6 +112,52 @@ func TestTTL(t *testing.T) {
 	}
 }
 
+// Test that requests we can't answer from the cache bypass it.
+func TestCacheBypass(t *testing.T) {
+	r := testutil.NewTestResolver()
+	c := NewCachingResolver(r)
+	c.Init()
+	resetStats()
+
+	// Populate the cache, so we can check the bypassed requests don't get
+	// the cached answer.
+	queryA(t, c, "test. A 1.2.3.4", "test.", "1.2.3.4")
+
+	multi := newQuery("test.", dns.TypeA)
+	multi.Question = append(multi.Question, multi.Question[0])
+
+	notify := newQuery("test.", dns.TypeA)
+	notify.Opcode = dns.OpcodeNotify
+
+	ednsV1 := newQuery("test.", dns.TypeA)
+	ednsV1.SetEdns0(4096, false)
+	ednsV1.IsEdns0().SetVersion(1)
+
+	tr := trace.New("test", "TestCacheBypass")
+	defer tr.Finish()
+
+	for _, req := range []*dns.Msg{multi, notify, ednsV1} {
+		resetStats()
+		r.LastQuery = nil
+		if _, err := c.Query(req, tr); err != nil {
+			t.Fatalf("query failed: %v", err)
+		}
+		if r.LastQuery != req {
+			t.Errorf("request was not sent to the back resolver: %v", req)
+		}
+		if !statsEquals(1, 0, 0) || stats.cacheBypassed.Value() != 1 {
+			t.Errorf("bad stats: %v, bypassed %v", dumpStats(),
+				stats.cacheBypassed)
+		}
+	}
+
+	// The answers to the bypassed requests should not have been recorded,
+	// and the cache should still have only the original entry.
+	if len(c.answer) != 1 {
+		t.Errorf("expected 1 entry in the cache, got %d", len(c.answer))
+	}
+}
+
 // Test that we use the minimum TTL of all the RRs in the answer.
 func TestMinTTL(t *testing.T) {
 	r := testutil.NewTestResolver()

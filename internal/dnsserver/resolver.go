@@ -242,6 +242,25 @@ func (c *cachingResolver) Maintain() {
 	}
 }
 
+// canUseCache checks if the request can be answered from (and recorded in)
+// the cache, returning an error with the reason if not.
+func canUseCache(r *dns.Msg) error {
+	if len(r.Question) != 1 {
+		// To keep it simple we only cache single-question queries.
+		return fmt.Errorf("multi-question query")
+	} else if r.Opcode != dns.OpcodeQuery {
+		// Other opcodes (like NOTIFY) are not queries, so the cached
+		// answers don't apply to them.
+		return fmt.Errorf("opcode %d != query", r.Opcode)
+	} else if opt := r.IsEdns0(); opt != nil && opt.Version() != 0 {
+		// We only support EDNS version 0 in our replies. Let the upstream
+		// handle other versions (it should reply with BADVERS).
+		return fmt.Errorf("EDNS version %d != 0", opt.Version())
+	}
+
+	return nil
+}
+
 func wantToCache(question dns.Question, reply *dns.Msg) error {
 	if reply.Rcode != dns.RcodeSuccess {
 		return fmt.Errorf("unsuccessful query")
@@ -325,9 +344,8 @@ func copyRRSlice(a []dns.RR) []dns.RR {
 func (c *cachingResolver) Query(r *dns.Msg, tr *trace.Trace) (*dns.Msg, error) {
 	stats.cacheTotal.Add(1)
 
-	// To keep it simple we only cache single-question queries.
-	if len(r.Question) != 1 {
-		tr.Printf("cache bypass: multi-question query")
+	if err := canUseCache(r); err != nil {
+		tr.Printf("cache bypass: %v", err)
 		stats.cacheBypassed.Add(1)
 		return c.back.Query(r, tr)
 	}
