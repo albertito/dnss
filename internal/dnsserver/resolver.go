@@ -38,10 +38,44 @@ type cachingResolver struct {
 	back Resolver
 
 	// The cache where we keep the records.
-	answer map[dns.Question][]dns.RR
+	answer map[cacheKey][]dns.RR
 
 	// mu protects the answer map.
 	mu *sync.RWMutex
+}
+
+// cacheKey is the key for the cache entries.
+// Besides the question, it includes the flags that change the upstream's
+// answer, so we don't serve an answer to clients that asked differently.
+type cacheKey struct {
+	q dns.Question
+
+	// DNSSEC OK: the answer includes DNSSEC records.
+	do bool
+
+	// Checking Disabled: the answer was not validated by the upstream.
+	cd bool
+}
+
+func newCacheKey(r *dns.Msg) cacheKey {
+	opt := r.IsEdns0()
+	return cacheKey{
+		q:  r.Question[0],
+		do: opt != nil && opt.Do(),
+		cd: r.CheckingDisabled,
+	}
+}
+
+func (k cacheKey) String() string {
+	s := fmt.Sprintf("%s %s %s", k.q.Name,
+		dns.TypeToString[k.q.Qtype], dns.ClassToString[k.q.Qclass])
+	if k.do {
+		s += " do"
+	}
+	if k.cd {
+		s += " cd"
+	}
+	return s
 }
 
 // NewCachingResolver returns a new resolver which implements a cache on top
@@ -49,7 +83,7 @@ type cachingResolver struct {
 func NewCachingResolver(back Resolver) *cachingResolver {
 	return &cachingResolver{
 		back:   back,
-		answer: map[dns.Question][]dns.RR{},
+		answer: map[cacheKey][]dns.RR{},
 		mu:     &sync.RWMutex{},
 	}
 }
@@ -122,26 +156,24 @@ func (c *cachingResolver) DumpCache(w http.ResponseWriter, r *http.Request) {
 
 	// Sort output by expiration, so it is somewhat consistent and practical
 	// to read.
-	qs := []dns.Question{}
-	for q := range c.answer {
-		qs = append(qs, q)
+	keys := []cacheKey{}
+	for k := range c.answer {
+		keys = append(keys, k)
 	}
-	sort.Slice(qs, func(i, j int) bool {
-		return getTTL(c.answer[qs[i]]) < getTTL(c.answer[qs[j]])
+	sort.Slice(keys, func(i, j int) bool {
+		return getTTL(c.answer[keys[i]]) < getTTL(c.answer[keys[j]])
 	})
 
 	// Go through the sorted list and dump the entries.
-	for _, q := range qs {
-		ans := c.answer[q]
+	for _, k := range keys {
+		ans := c.answer[k]
 
 		// Only include names and records if we are running verbosily.
-		name := "<hidden>"
-		if log.V(1) {
-			name = q.Name
+		if !log.V(1) {
+			k.q.Name = "<hidden>"
 		}
 
-		fmt.Fprintf(buf, "Q: %s %s %s\n", name, dns.TypeToString[q.Qtype],
-			dns.ClassToString[q.Qclass])
+		fmt.Fprintf(buf, "Q: %s\n", k)
 
 		ttl := getTTL(ans)
 		fmt.Fprintf(buf, "   expires in %s (%s)\n", ttl, time.Now().Add(ttl))
@@ -162,7 +194,7 @@ func (c *cachingResolver) DumpCache(w http.ResponseWriter, r *http.Request) {
 
 func (c *cachingResolver) FlushCache(w http.ResponseWriter, r *http.Request) {
 	c.mu.Lock()
-	c.answer = map[dns.Question][]dns.RR{}
+	c.answer = map[cacheKey][]dns.RR{}
 	c.mu.Unlock()
 
 	w.Write([]byte("cache flush complete"))
@@ -177,7 +209,7 @@ func (c *cachingResolver) Maintain() {
 
 		c.mu.Lock()
 		total = len(c.answer)
-		for q, ans := range c.answer {
+		for k, ans := range c.answer {
 			newTTL := getTTL(ans) - maintenancePeriod
 			if newTTL > 0 {
 				// Don't modify in place, create a copy and override.
@@ -185,11 +217,11 @@ func (c *cachingResolver) Maintain() {
 				// cached answer and are returning it.
 				newans := copyRRSlice(ans)
 				setTTL(newans, newTTL)
-				c.answer[q] = newans
+				c.answer[k] = newans
 				continue
 			}
 
-			delete(c.answer, q)
+			delete(c.answer, k)
 			expired++
 		}
 		c.mu.Unlock()
@@ -265,9 +297,10 @@ func (c *cachingResolver) Query(r *dns.Msg, tr *trace.Trace) (*dns.Msg, error) {
 	}
 
 	question := r.Question[0]
+	key := newCacheKey(r)
 
 	c.mu.RLock()
-	answer, hit := c.answer[question]
+	answer, hit := c.answer[key]
 	c.mu.RUnlock()
 
 	if hit {
@@ -315,7 +348,7 @@ func (c *cachingResolver) Query(r *dns.Msg, tr *trace.Trace) (*dns.Msg, error) {
 	c.mu.Lock()
 	if len(c.answer) < maxCacheSize {
 		setTTL(answer, ttl)
-		c.answer[question] = answer
+		c.answer[key] = answer
 		stats.cacheRecorded.Add(1)
 	}
 	c.mu.Unlock()

@@ -131,6 +131,48 @@ func TestFailedQueries(t *testing.T) {
 	}
 }
 
+// Test that queries with different DO and CD bits get separate cache entries.
+func TestCacheKeyFlags(t *testing.T) {
+	r := testutil.NewTestResolver()
+	c := NewCachingResolver(r)
+	c.Init()
+	resetStats()
+
+	r.Response = newReply(mustNewRR(t, "test. A 1.2.3.4"))
+
+	plain := newQuery("test.", dns.TypeA)
+	edns := newQuery("test.", dns.TypeA)
+	edns.SetEdns0(4096, false)
+	do := newQuery("test.", dns.TypeA)
+	do.SetEdns0(4096, true)
+	cd := newQuery("test.", dns.TypeA)
+	cd.CheckingDisabled = true
+
+	tr := trace.New("test", "TestCacheKeyFlags")
+	defer tr.Finish()
+
+	// The first round should be all misses.
+	for _, req := range []*dns.Msg{plain, do, cd} {
+		if _, err := c.Query(req, tr); err != nil {
+			t.Fatalf("query failed: %v", err)
+		}
+	}
+	if !statsEquals(3, 0, 3) {
+		t.Errorf("bad stats: %v", dumpStats())
+	}
+
+	// The second round should be all hits. EDNS without DO should get the
+	// same entry as the plain query.
+	for _, req := range []*dns.Msg{plain, edns, do, cd} {
+		if _, err := c.Query(req, tr); err != nil {
+			t.Fatalf("query failed: %v", err)
+		}
+	}
+	if !statsEquals(7, 4, 3) {
+		t.Errorf("bad stats: %v", dumpStats())
+	}
+}
+
 func TestWantToCache(t *testing.T) {
 	query := newQuery("test.", dns.TypeA)
 	q := query.Question[0]
