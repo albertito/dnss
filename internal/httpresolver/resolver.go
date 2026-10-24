@@ -13,7 +13,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"sync"
 	"time"
 
 	"blitiri.com.ar/go/dnss/internal/dnsserver"
@@ -26,18 +25,17 @@ import (
 // httpsResolver implements the dnsserver.Resolver interface by querying a
 // server via DNS over HTTPS (DoH, RFC 8484).
 type httpsResolver struct {
-	Upstream  *url.URL
-	CAFile    string
-	tlsConfig *tls.Config
+	Upstream *url.URL
+	CAFile   string
 
 	// net.Resolver that will contact the server at --fallback_upstream for
 	// DNS resolutions.
 	fallbackResolver *net.Resolver
 
-	mu       sync.Mutex
-	client   *http.Client
-	firstErr time.Time
-	tr       *trace.Trace
+	client *http.Client
+
+	// Trace to keep track of client errors, for debugging.
+	tr *trace.Trace
 }
 
 var errAppendingCerts = errors.New("error appending certificates")
@@ -84,127 +82,63 @@ func NewDoH(upstream *url.URL, caFile, fallback string) *httpsResolver {
 func (r *httpsResolver) Init() error {
 	// If CAFile is empty, we're ok with the defaults (use the system default
 	// CA database).
+	var tlsConfig *tls.Config
 	if r.CAFile != "" {
 		pool, err := loadCertPool(r.CAFile)
 		if err != nil {
 			return err
 		}
 
-		r.tlsConfig = &tls.Config{
+		tlsConfig = &tls.Config{
 			RootCAs: pool,
 		}
 	}
 
-	client, err := r.newClient()
-
-	r.mu.Lock()
-	r.client = client
+	r.client = newClient(tlsConfig, r.fallbackResolver)
 	r.tr = trace.New("httpresolver.Client", r.Upstream.String())
-	r.tr.Printf("Init complete, client: %p", r.client)
-	r.mu.Unlock()
+	r.tr.Printf("Init complete")
 
-	return err
+	return nil
 }
 
-func (r *httpsResolver) newClient() (*http.Client, error) {
-	transport := &http.Transport{
-		TLSClientConfig: r.tlsConfig,
+func newClient(tlsConfig *tls.Config, resolver *net.Resolver) *http.Client {
+	// Start from the default transport, which has reasonable settings (e.g.
+	// for timeouts, and taking proxy settings from the environment).
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.TLSClientConfig = tlsConfig
 
-		// Take the semi-standard proxy settings from the environment.
-		Proxy: http.ProxyFromEnvironment,
+	// Use our resolver to find the upstream's address.
+	// Limit the dial timeout, as queries time out sooner anyway. Note dials
+	// can outlive the queries that started them, so the connection may still
+	// be useful for later queries.
+	transport.DialContext = (&net.Dialer{
+		Timeout:  10 * time.Second,
+		Resolver: resolver,
+	}).DialContext
 
-		// Drop connections after 30s idle.
-		// This helps prevent connection pile-up on frequent client rotations,
-		// which can happen with intermittent network issues.
-		IdleConnTimeout: 30 * time.Second,
-
-		// Reasonable defaults, based on http.DefaultTransport.
-		DialContext: (&net.Dialer{
-			Timeout:   10 * time.Second,
-			KeepAlive: 1 * time.Second,
-			Resolver:  r.fallbackResolver,
-		}).DialContext,
-		ForceAttemptHTTP2:     true,
-		MaxIdleConns:          10,
-		TLSHandshakeTimeout:   4 * time.Second,
-		ExpectContinueTimeout: 1 * time.Second,
+	// Enable HTTP/2 health checks: if we haven't received anything on a
+	// connection for 5s, send a ping, and close the connection if there is no
+	// response within 3s.
+	// This detects dead connections (e.g. when the network changes, or after
+	// an outage), which otherwise the transport would keep using for a long
+	// time.
+	transport.HTTP2 = &http.HTTP2Config{
+		SendPingTimeout: 5 * time.Second,
+		PingTimeout:     3 * time.Second,
 	}
 
-	client := &http.Client{
+	return &http.Client{
 		// Give our HTTP requests 4 second timeouts: DNS usually doesn't wait
 		// that long anyway, but this helps with slow connections.
 		Timeout: 4 * time.Second,
 
 		Transport: transport,
 	}
-
-	return client, nil
 }
 
-func (r *httpsResolver) setClientError(err error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	if err == nil {
-		r.firstErr = time.Time{}
-	} else {
-		if r.firstErr.IsZero() {
-			r.firstErr = time.Now()
-		}
-		r.tr.Printf("Client error: %v", err)
-	}
-}
-
-func (r *httpsResolver) Maintain(ctx context.Context) {
-	ticker := time.NewTicker(2 * time.Second)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-			r.maybeRotateClient()
-		}
-	}
-}
-
-func (r *httpsResolver) maybeRotateClient() {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	if r.firstErr.IsZero() {
-		return
-	}
-
-	// If we've seen errors for the last 10s, rotate the client.
-	// This is unfortunately needed because the Go HTTP/2 transport will
-	// insist on using a dead connection for a long time, and cannot be told
-	// to close it. This causes problems when the computer changes connections
-	// (e.g. switch wifi network) or is having intermittent network issues.
-	// This workaround works because a new client will initiate a new
-	// connection, and the old one will die in the background.
-	// The time chosen here combines with the transport timeouts set above, so
-	// we never have too many in-flight connections.
-	if time.Since(r.firstErr) > 10*time.Second {
-		// Close the old trace, and create a new one.
-		// This makes it easier to analyze the client behaviour in the traces.
-		r.tr.Errorf("Rotating client after %s of errors: %p",
-			time.Since(r.firstErr), r.client)
-		r.tr.Finish()
-
-		r.tr = trace.New("httpresolver.Client", r.Upstream.String())
-		client, err := r.newClient()
-		if err != nil {
-			r.tr.Errorf("Error creating new client: %v", err)
-			return
-		}
-
-		r.client = client
-		r.firstErr = time.Time{}
-		r.tr.Printf("Rotated client: %p", r.client)
-	}
-}
+// Maintain the resolver. There's nothing to do, as the HTTP transport takes
+// care of the connections.
+func (r *httpsResolver) Maintain(ctx context.Context) {}
 
 func (r *httpsResolver) Query(req *dns.Msg, tr *trace.Trace) (*dns.Msg, error) {
 	packed, err := req.Pack()
@@ -218,16 +152,12 @@ func (r *httpsResolver) Query(req *dns.Msg, tr *trace.Trace) (*dns.Msg, error) {
 
 	// TODO: Accept header.
 
-	r.mu.Lock()
-	client := r.client
-	r.mu.Unlock()
-
-	hr, err := client.Post(
+	hr, err := r.client.Post(
 		r.Upstream.String(),
 		"application/dns-message",
 		bytes.NewReader(packed))
-	r.setClientError(err)
 	if err != nil {
+		r.tr.Printf("Client error: %v", err)
 		return nil, fmt.Errorf("POST failed: %w", err)
 	}
 	tr.Printf("%s  %s", hr.Proto, hr.Status)
